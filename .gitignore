@@ -18,6 +18,7 @@
 go.work
 tmp/
 bin/
+docs/plans/
 
 # IDE specific files
 .vscode

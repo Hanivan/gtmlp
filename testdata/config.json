@@ -1,0 +1,6 @@
+{
+  "container": "//div[@class='product']",
+  "fields": {
+    "name": ".//h2/text()"
+  }
+}

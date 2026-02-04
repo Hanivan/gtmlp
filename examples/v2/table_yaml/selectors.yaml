@@ -1,0 +1,12 @@
+# Table parsing configuration (YAML)
+
+# Repeating element selector
+container: "//tbody/tr[@class='product-item']"
+
+# Field definitions
+fields:
+  id: ".//td[@class='product-id']"
+  name: ".//td[@class='product-name']"
+  category: ".//td[@class='product-category']"
+  price: ".//td[@class='product-price']"
+  stock: ".//td[@class='product-stock']"

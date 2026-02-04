@@ -1,32 +1,42 @@
 package gtmlp
 
-import (
-	"fmt"
-)
+import "time"
 
-// ParseError represents an error that occurred during parsing.
-type ParseError struct {
-	Message string
-	Err     error
+// EnvMapping defines configurable environment variable names
+type EnvMapping struct {
+	Timeout    string
+	UserAgent  string
+	RandomUA   string
+	MaxRetries string
+	Proxy      string
 }
 
-// Error returns the error message.
-func (e *ParseError) Error() string {
-	if e.Err != nil {
-		return fmt.Sprintf("%s: %v", e.Message, e.Err)
-	}
-	return e.Message
+// DefaultEnvMapping provides default env var names
+var DefaultEnvMapping = &EnvMapping{
+	Timeout:    "GTMLP_TIMEOUT",
+	UserAgent:  "GTMLP_USER_AGENT",
+	RandomUA:   "GTMLP_RANDOM_UA",
+	MaxRetries: "GTMLP_MAX_RETRIES",
+	Proxy:      "GTMLP_PROXY",
 }
 
-// Unwrap returns the underlying error.
-func (e *ParseError) Unwrap() error {
-	return e.Err
+// Config holds scraping configuration
+type Config struct {
+	// XPath definitions
+	Container string            // Repeating element selector
+	Fields    map[string]string // Field name → XPath expression
+
+	// HTTP options
+	Timeout    time.Duration
+	UserAgent  string
+	RandomUA   bool
+	MaxRetries int
+	Proxy      string
+	Headers    map[string]string
 }
 
-// NewParseError creates a new ParseError.
-func NewParseError(message string, err error) *ParseError {
-	return &ParseError{
-		Message: message,
-		Err:     err,
-	}
+// PartialResult contains data and field-level errors
+type PartialResult[T any] struct {
+	Data   []T
+	Errors map[string]error
 }

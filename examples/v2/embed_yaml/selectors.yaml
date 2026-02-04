@@ -1,0 +1,11 @@
+# E-commerce product scraping configuration (YAML)
+# Embedded using go:embed directive
+
+# Repeating element selector
+container: "//li[@data-products='item']"
+
+# Field definitions - XPath relative to container
+fields:
+  name: ".//h2[@class='product-name woocommerce-loop-product__title']/text()"
+  price: ".//span[@class='product-price woocommerce-Price-amount amount']/bdi/text()[normalize-space()]"
+  link: ".//a[@class='woocommerce-LoopProduct-link woocommerce-loop-product__link']/@href"

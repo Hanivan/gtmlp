@@ -7,6 +7,7 @@ Complete API reference for GTMLP v2.0 - the configuration-based, type-safe scrap
 - [Overview](#overview)
 - [Core Scraping Functions](#core-scraping-functions)
 - [Config Loading](#config-loading)
+- [Data Transformation Pipes](#data-transformation-pipes)
 - [XPath Validation](#xpath-validation)
 - [Health Check](#health-check)
 - [Types](#types)
@@ -52,16 +53,16 @@ type Article struct {
 
 config := &gtmlp.Config{
     Container: "//article[@class='blog-post']",
-    Fields: map[string]string{
-        "title":   ".//h2/text()",
-        "content": ".//div[@class='content']/text()",
-        "author":  ".//span[@class='author']/text()",
+    Fields: map[string]gtmlp.FieldConfig{
+        "title":   {XPath: ".//h2/text()"},
+        "content": {XPath: ".//div[@class='content']/text()"},
+        "author":  {XPath: ".//span[@class='author']/text()"},
     },
 }
 
 html := `<html>...</html>`
 
-articles, err := gtmlp.Scrape[Article](html, config)
+articles, err := gtmlp.Scrape[Article](context.Background(), html, config)
 if err != nil {
     log.Fatal(err)
 }
@@ -98,13 +99,13 @@ func ScrapeUntyped(html string, config *Config) ([]map[string]any, error)
 ```go
 config := &gtmlp.Config{
     Container: "//div[@class='product']",
-    Fields: map[string]string{
-        "name":  ".//h2/text()",
-        "price": ".//span[@class='price']/text()",
+    Fields: map[string]gtmlp.FieldConfig{
+        "name":  {XPath: ".//h2/text()"},
+        "price": {XPath: ".//span[@class='price']/text()"},
     },
 }
 
-results, err := gtmlp.ScrapeUntyped(html, config)
+results, err := gtmlp.ScrapeUntyped(context.Background(), html, config)
 if err != nil {
     log.Fatal(err)
 }
@@ -141,6 +142,7 @@ func ScrapeURL[T any](url string, config *Config) ([]T, error)
 config, _ := gtmlp.LoadConfig("selectors.json", nil)
 
 products, err := gtmlp.ScrapeURL[Product](
+    context.Background(),
     "https://example.com/products",
     config,
 )
@@ -154,7 +156,7 @@ if err != nil {
 config := &gtmlp.Config{
     // XPath settings
     Container: "//div[@class='product']",
-    Fields:    map[string]string{...},
+    Fields:    map[string]gtmlp.FieldConfig{...},
 
     // HTTP settings
     Timeout:    30 * time.Second,
@@ -190,6 +192,7 @@ func ScrapeURLUntyped(url string, config *Config) ([]map[string]any, error)
 config, _ := gtmlp.LoadConfig("selectors.json", nil)
 
 results, err := gtmlp.ScrapeURLUntyped(
+    context.Background(),
     "https://example.com/products",
     config,
 )
@@ -242,9 +245,9 @@ config, err := gtmlp.LoadConfig("selectors.yaml", customMapping)
 {
   "container": "//div[@class='product']",
   "fields": {
-    "name": ".//h2/text()",
-    "price": ".//span[@class='price']/text()",
-    "link": ".//a/@href"
+    "name": {"xpath": ".//h2/text()", "pipes": ["trim"]},
+    "price": {"xpath": ".//span[@class='price']/text()", "pipes": ["trim", "tofloat"]},
+    "link": {"xpath": ".//a/@href", "pipes": ["parseurl"]}
   },
   "timeout": "30s",
   "user_agent": "GTMLP/2.0",
@@ -261,9 +264,15 @@ config, err := gtmlp.LoadConfig("selectors.yaml", customMapping)
 ```yaml
 container: "//div[@class='product']"
 fields:
-  name: ".//h2/text()"
-  price: ".//span[@class='price']/text()"
-  link: ".//a/@href"
+  name:
+    xpath: ".//h2/text()"
+    pipes: ["trim"]
+  price:
+    xpath: ".//span[@class='price']/text()"
+    pipes: ["trim", "tofloat"]
+  link:
+    xpath: ".//a/@href"
+    pipes: ["parseurl"]
 timeout: 30s
 user_agent: "GTMLP/2.0"
 random_ua: false
@@ -331,14 +340,183 @@ func (c *Config) Validate() error
 ```go
 config := &gtmlp.Config{
     Container: "//div[@class='product']",
-    Fields: map[string]string{
-        "name": ".//h2/text()",
+    Fields: map[string]gtmlp.FieldConfig{
+        "name": {XPath: ".//h2/text()"},
     },
     Timeout: 30 * time.Second,
 }
 
 if err := config.Validate(); err != nil {
     log.Fatalf("Invalid config: %v", err)
+}
+```
+
+## Data Transformation Pipes
+
+Pipes transform extracted field values after XPath extraction. Apply pipes in config using the `pipes` array:
+
+```json
+{
+  "fields": {
+    "name": {"xpath": ".//h2/text()", "pipes": ["trim"]},
+    "price": {"xpath": ".//span[@class='price']/text()", "pipes": ["trim", "tofloat"]},
+    "url": {"xpath": ".//a/@href", "pipes": ["parseurl"]}
+  }
+}
+```
+
+### Built-in Pipes
+
+#### trim
+
+Removes leading and trailing whitespace.
+
+```json
+{"name": {"xpath": ".//h2/text()", "pipes": ["trim"]}}
+```
+
+#### toint
+
+Converts string to integer. Strips common currency symbols (`$`, commas).
+
+```json
+{"price": {"xpath": ".//span[@class='price']/text()", "pipes": ["toint"]}}
+```
+
+**Input:** `"$1,234"` → **Output:** `1234` (int)
+
+#### tofloat
+
+Converts string to float64. Strips currency symbols.
+
+```json
+{"price": {"xpath": ".//span[@class='price']/text()", "pipes": ["tofloat"]}}
+```
+
+**Input:** `"$1,234.56"` → **Output:** `1234.56` (float64)
+
+#### parseurl
+
+Converts relative URLs to absolute using base URL from context.
+
+```json
+{"link": {"xpath": ".//a/@href", "pipes": ["parseurl"]}}
+```
+
+**Requires:** Base URL in context (automatically set when using `ScrapeURL`)
+
+**Input:** `"/products/item"` with base `https://example.com` → **Output:** `https://example.com/products/item`
+
+#### parsetime
+
+Parses datetime string with specified layout and timezone.
+
+```json
+{"date": {"xpath": ".//time/@datetime", "pipes": ["parsetime:2006-01-02T15:04:05Z:UTC"]}}
+```
+
+**Parameters:**
+1. `layout` - Go time format (required)
+2. `timezone` - IANA timezone name (optional, default: UTC)
+
+#### regexreplace
+
+Performs regex substitution.
+
+```json
+{"clean": {"xpath": ".//text()", "pipes": ["regexreplace:\\\\s+:_:i"]}}
+```
+
+**Parameters:**
+1. `pattern` - Regex pattern (required)
+2. `replacement` - Replacement string (required)
+3. `flags` - Optional flags (only `i` for case-insensitive supported)
+
+#### humanduration
+
+Converts seconds to human-readable "X ago" format.
+
+```json
+{"ago": {"xpath": ".//time/@data-seconds", "pipes": ["humanduration"]}}
+```
+
+**Input:** `"120"` → **Output:** `"2 minutes ago"`
+
+### Custom Pipes
+
+Register custom pipes using `RegisterPipe`:
+
+```go
+import (
+    "context"
+    "strings"
+    "github.com/Hanivan/gtmlp"
+)
+
+func init() {
+    gtmlp.RegisterPipe("uppercase", func(ctx context.Context, input string, params []string) (any, error) {
+        return strings.ToUpper(input), nil
+    })
+
+    gtmlp.RegisterPipe("slugify", func(ctx context.Context, input string, params []string) (any, error) {
+        // Custom slugification logic
+        slug := strings.ToLower(strings.ReplaceAll(input, " ", "-"))
+        return slug, nil
+    })
+}
+```
+
+**Pipe Function Signature:**
+
+```go
+type PipeFunc func(ctx context.Context, input string, params []string) (any, error)
+```
+
+**Parameters:**
+- `ctx` - Context (contains baseURL for parseurl pipe)
+- `input` - String value from XPath extraction
+- `params` - Pipe parameters (split by `:`)
+
+**Returns:**
+- `any` - Transformed value (can be string, int, float64, time.Time, etc.)
+- `error` - Error if transformation fails
+
+**Example with parameters:**
+
+```go
+gtmlp.RegisterPipe("prefix", func(ctx context.Context, input string, params []string) (any, error) {
+    if len(params) < 1 {
+        return "", fmt.Errorf("prefix requires parameter")
+    }
+    return params[0] + input, nil
+})
+
+// Usage in config:
+{"name": {"xpath": ".//h2/text()", "pipes": ["prefix:Product: "]}}
+```
+
+### Pipe Chains
+
+Pipes are applied in order. Each pipe receives the output of the previous pipe:
+
+```json
+{"price": {"xpath": ".//span/text()", "pipes": ["trim", "regexReplace:\\$::", "tofloat"]}}
+```
+
+**Flow:** `"$1,234.56"` → `trim` → `"1,234.56"` → `regexReplace` → `"1,234.56"` → `tofloat` → `1234.56`
+
+### Error Handling
+
+Pipe errors return `ErrTypePipe` with context:
+
+```go
+results, err := gtmlp.ScrapeURL[Product](context.Background(), url, config)
+if err != nil {
+    if gtmlp.Is(err, gtmlp.ErrTypePipe) {
+        pipeErr := err.(*gtmlp.PipeError)
+        log.Printf("Pipe '%s' failed on field '%s': %v",
+            pipeErr.PipeName, pipeErr.Field, pipeErr.Cause)
+    }
 }
 ```
 
@@ -410,6 +588,7 @@ func ValidateXPathURL(url string, config *Config) (map[string]ValidationResult, 
 config, _ := gtmlp.LoadConfig("selectors.json", nil)
 
 results, err := gtmlp.ValidateXPathURL(
+    context.Background(),
     "https://example.com/products",
     config,
 )
@@ -540,8 +719,8 @@ Scraping configuration structure.
 ```go
 type Config struct {
     // XPath definitions
-    Container string            // Repeating element selector
-    Fields    map[string]string // Field name → XPath expression
+    Container string                    // Repeating element selector
+    Fields    map[string]FieldConfig    // Field name → Field configuration
 
     // HTTP options
     Timeout    time.Duration
@@ -551,6 +730,25 @@ type Config struct {
     Proxy      string
     Headers    map[string]string
 }
+```
+
+### FieldConfig
+
+Field configuration with XPath and optional pipes.
+
+```go
+type FieldConfig struct {
+    XPath string   // XPath expression
+    Pipes []string // Pipe chain (e.g., ["trim", "tofloat"])
+}
+```
+
+### PipeFunc
+
+Pipe transformation function signature.
+
+```go
+type PipeFunc func(ctx context.Context, input string, params []string) (any, error)
 ```
 
 **Field Descriptions:**
@@ -662,6 +860,7 @@ const (
     ErrTypeXPath      ErrorType = "xpath"
     ErrTypeConfig     ErrorType = "config"
     ErrTypeValidation ErrorType = "validation"
+    ErrTypePipe       ErrorType = "pipe"
 )
 ```
 
@@ -743,15 +942,16 @@ if err != nil {
 package main
 
 import (
+    "context"
     "fmt"
     "log"
     "github.com/Hanivan/gtmlp"
 )
 
 type Product struct {
-    Name  string `json:"name"`
-    Price string `json:"price"`
-    Link  string `json:"link"`
+    Name  string  `json:"name"`
+    Price float64 `json:"price"`
+    Link  string  `json:"link"`
 }
 
 func main() {
@@ -763,6 +963,7 @@ func main() {
 
     // Scrape products
     products, err := gtmlp.ScrapeURL[Product](
+        context.Background(),
         "https://example.com/shop",
         config,
     )
@@ -772,7 +973,7 @@ func main() {
 
     // Process results
     for _, p := range products {
-        fmt.Printf("%s - %s (%s)\n", p.Name, p.Price, p.Link)
+        fmt.Printf("%s - %.2f (%s)\n", p.Name, p.Price, p.Link)
     }
 }
 ```
@@ -782,9 +983,9 @@ func main() {
 {
   "container": "//div[@class='product-item']",
   "fields": {
-    "name": ".//h3[@class='product-title']/text()",
-    "price": ".//span[@class='price']/text()",
-    "link": ".//a[@class='product-link']/@href"
+    "name": {"xpath": ".//h3[@class='product-title']/text()", "pipes": ["trim"]},
+    "price": {"xpath": ".//span[@class='price']/text()", "pipes": ["trim", "tofloat"]},
+    "link": {"xpath": ".//a[@class='product-link']/@href", "pipes": ["parseurl"]}
   },
   "timeout": "30s",
   "user_agent": "MyBot/1.0",
@@ -799,6 +1000,7 @@ func main() {
 package main
 
 import (
+    "context"
     "fmt"
     "log"
     "github.com/Hanivan/gtmlp"
@@ -819,7 +1021,7 @@ func main() {
 
     // Validate XPath before scraping
     url := "https://blog.example.com"
-    results, err := gtmlp.ValidateXPathURL(url, config)
+    results, err := gtmlp.ValidateXPathURL(context.Background(), url, config)
     if err != nil {
         log.Fatal(err)
     }
@@ -834,7 +1036,7 @@ func main() {
     }
 
     // Scrape if validation passed
-    articles, err := gtmlp.ScrapeURL[Article](url, config)
+    articles, err := gtmlp.ScrapeURL[Article](context.Background(), url, config)
     if err != nil {
         log.Fatal(err)
     }
@@ -893,6 +1095,7 @@ func main() {
 package main
 
 import (
+    "context"
     "log"
     "os"
     "github.com/Hanivan/gtmlp"
@@ -917,7 +1120,7 @@ func main() {
     // RandomUA: true (from env)
     // MaxRetries: 5 (from env)
 
-    results, err := gtmlp.ScrapeURL[Product]("https://example.com", config)
+    results, err := gtmlp.ScrapeURL[Product](context.Background(), "https://example.com", config)
     if err != nil {
         log.Fatal(err)
     }
@@ -930,6 +1133,7 @@ func main() {
 package main
 
 import (
+    "context"
     "fmt"
     "log"
     "github.com/Hanivan/gtmlp"
@@ -938,15 +1142,16 @@ import (
 func main() {
     config := &gtmlp.Config{
         Container: "//div[@class='item']",
-        Fields: map[string]string{
-            "title":       ".//h2/text()",
-            "description": ".//p/text()",
-            "tags":        ".//span[@class='tag']/text()",
+        Fields: map[string]gtmlp.FieldConfig{
+            "title":       {XPath: ".//h2/text()"},
+            "description": {XPath: ".//p/text()"},
+            "tags":        {XPath: ".//span[@class='tag']/text()"},
         },
     }
 
     // Use untyped scraping for dynamic data
     results, err := gtmlp.ScrapeURLUntyped(
+        context.Background(),
         "https://example.com/items",
         config,
     )
@@ -969,15 +1174,17 @@ func main() {
 package main
 
 import (
+    "context"
     "log"
+    "time"
     "github.com/Hanivan/gtmlp"
 )
 
 func main() {
     config := &gtmlp.Config{
         Container: "//div[@class='product']",
-        Fields: map[string]string{
-            "name": ".//h2/text()",
+        Fields: map[string]gtmlp.FieldConfig{
+            "name": {XPath: ".//h2/text()"},
         },
         Timeout:   30 * time.Second, // Timeout applies to proxy too
         Proxy:     "http://proxy.example.com:8080",
@@ -988,6 +1195,7 @@ func main() {
     }
 
     products, err := gtmlp.ScrapeURL[Product](
+        context.Background(),
         "https://example.com",
         config,
     )
@@ -1003,15 +1211,17 @@ func main() {
 package main
 
 import (
+    "context"
     "log"
+    "time"
     "github.com/Hanivan/gtmlp"
 )
 
 func main() {
     config := &gtmlp.Config{
         Container: "//div[@class='product']",
-        Fields: map[string]string{
-            "name": ".//h2/text()",
+        Fields: map[string]gtmlp.FieldConfig{
+            "name": {XPath: ".//h2/text()"},
         },
         Timeout:    10 * time.Second,
         MaxRetries: 3, // Retry up to 3 times with exponential backoff
@@ -1019,6 +1229,7 @@ func main() {
     }
 
     products, err := gtmlp.ScrapeURL[Product](
+        context.Background(),
         "https://example.com",
         config,
     )
@@ -1029,6 +1240,8 @@ func main() {
             log.Printf("Network error after retries: %v", err)
         } else if gtmlp.Is(err, gtmlp.ErrTypeXPath) {
             log.Printf("Invalid XPath in config: %v", err)
+        } else if gtmlp.Is(err, gtmlp.ErrTypePipe) {
+            log.Printf("Pipe transformation failed: %v", err)
         } else {
             log.Printf("Unexpected error: %v", err)
         }
@@ -1045,17 +1258,17 @@ func main() {
 
 ```go
 // Good - Type safe
-products, err := gtmlp.ScrapeURL[Product](url, config)
+products, err := gtmlp.ScrapeURL[Product](context.Background(), url, config)
 
 // Acceptable for dynamic data
-results, err := gtmlp.ScrapeURLUntyped(url, config)
+results, err := gtmlp.ScrapeURLUntyped(context.Background(), url, config)
 ```
 
 ### 2. Validate XPath Before Scraping
 
 ```go
 // Always validate in development
-results, err := gtmlp.ValidateXPathURL(url, config)
+results, err := gtmlp.ValidateXPathURL(context.Background(), url, config)
 if err != nil {
     log.Fatal(err)
 }
@@ -1075,7 +1288,7 @@ Store XPath selectors in JSON/YAML files for maintainability:
 {
   "container": "//div[@class='product']",
   "fields": {
-    "name": ".//h2/text()"
+    "name": {"xpath": ".//h2/text()", "pipes": ["trim"]}
   }
 }
 ```
@@ -1092,12 +1305,14 @@ config := &gtmlp.Config{
 ### 5. Handle Errors Gracefully
 
 ```go
-results, err := gtmlp.ScrapeURL[Product](url, config)
+results, err := gtmlp.ScrapeURL[Product](context.Background(), url, config)
 if err != nil {
     if gtmlp.Is(err, gtmlp.ErrTypeNetwork) {
         // Retry with backoff
     } else if gtmlp.Is(err, gtmlp.ErrTypeConfig) {
         // Fix configuration
+    } else if gtmlp.Is(err, gtmlp.ErrTypePipe) {
+        // Fix pipe configuration
     }
     return
 }

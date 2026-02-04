@@ -7,6 +7,8 @@ Complete API reference for GTMLP v2.0 - the configuration-based, type-safe scrap
 - [Overview](#overview)
 - [Core Scraping Functions](#core-scraping-functions)
 - [Config Loading](#config-loading)
+- [Logging](#logging)
+- [Security](#security)
 - [Fallback XPath Chains](#fallback-xpath-chains)
 - [Pagination](#pagination)
 - [Data Transformation Pipes](#data-transformation-pipes)
@@ -353,6 +355,316 @@ if err := config.Validate(); err != nil {
 }
 ```
 
+## Logging
+
+GTMLP uses Go's standard `log/slog` package for structured logging with configurable log levels.
+
+### SetLogLevel
+
+Sets the global log level for GTMLP operations.
+
+```go
+func SetLogLevel(level slog.Level)
+```
+
+**Parameters:**
+- `level`: Log level (LevelDebug, LevelInfo, LevelWarn, LevelError)
+
+**Example:**
+
+```go
+import "log/slog"
+
+// Development: see HTTP requests and scraping progress
+gtmlp.SetLogLevel(slog.LevelInfo)
+
+// Troubleshooting: see detailed XPath evaluation
+gtmlp.SetLogLevel(slog.LevelDebug)
+
+// Production: warnings and errors only (default)
+gtmlp.SetLogLevel(slog.LevelWarn)
+
+// Silent: errors only
+gtmlp.SetLogLevel(slog.LevelError)
+```
+
+**Note:** `SetLogLevel` creates a new default handler (TextHandler to stderr). For custom handlers, use `SetLogger` instead.
+
+### SetLogger
+
+Sets a custom logger with full control over output format and destination.
+
+```go
+func SetLogger(logger *slog.Logger)
+```
+
+**Parameters:**
+- `logger`: Custom slog.Logger instance
+
+**Example:**
+
+```go
+import (
+    "log/slog"
+    "os"
+)
+
+// JSON format to stdout
+handler := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+    Level: slog.LevelInfo,
+})
+gtmlp.SetLogger(slog.New(handler))
+
+// Custom writer (e.g., file)
+file, _ := os.OpenFile("gtmlp.log", os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
+handler := slog.NewTextHandler(file, &slog.HandlerOptions{
+    Level: slog.LevelDebug,
+})
+gtmlp.SetLogger(slog.New(handler))
+```
+
+### GetLogger
+
+Returns the current global logger instance.
+
+```go
+func GetLogger() *slog.Logger
+```
+
+**Returns:**
+- `*slog.Logger`: Current logger
+
+**Example:**
+
+```go
+logger := gtmlp.GetLogger()
+logger.Info("custom log message", "key", "value")
+```
+
+### Log Levels
+
+| Level | Description | What's Logged |
+|-------|-------------|---------------|
+| **Debug** | Detailed debugging | XPath evaluation, fallback usage, field extraction details |
+| **Info** | General information | HTTP requests, scraping progress, pagination status |
+| **Warn** | Warnings (default) | Fallback XPath used, HTTP warnings, duplicate URLs |
+| **Error** | Errors only | HTTP failures, parsing errors, validation failures |
+
+### Log Output Examples
+
+**Debug Level:**
+```
+time=2026-02-04T10:30:00Z level=DEBUG msg="scraping started" container="//div" fields=3 html_size=15234
+time=2026-02-04T10:30:00Z level=DEBUG msg="containers found" xpath="//div[@class='product']"
+time=2026-02-04T10:30:00Z level=WARN msg="field fallback used" primary=".//h2" used=".//h3" fallback_index=1
+```
+
+**Info Level:**
+```
+time=2026-02-04T10:30:00Z level=INFO msg="http request successful" url="https://example.com" status=200 duration_ms=342 attempt=1
+time=2026-02-04T10:30:00Z level=INFO msg="scraping completed" items=25 container="//div"
+time=2026-02-04T10:30:00Z level=INFO msg="pagination starting" url="https://example.com/page1" type="next-link"
+```
+
+**Warn Level (default):**
+```
+time=2026-02-04T10:30:00Z level=WARN msg="http url used" url="http://example.com" recommendation="use_https"
+time=2026-02-04T10:30:00Z level=WARN msg="container fallback used" primary="//div[@class='a']" used="//div[@class='b']"
+time=2026-02-04T10:30:00Z level=WARN msg="pagination duplicate url" url="https://example.com/page1" page=5
+```
+
+### Best Practices
+
+**Development:**
+```go
+gtmlp.SetLogLevel(slog.LevelInfo) // See requests and progress
+```
+
+**Staging/Testing:**
+```go
+gtmlp.SetLogLevel(slog.LevelDebug) // Full visibility for debugging
+```
+
+**Production:**
+```go
+// Use default (Warn level) or explicitly set
+gtmlp.SetLogLevel(slog.LevelWarn) // Warnings and errors only
+```
+
+**Custom Production Logger:**
+```go
+// JSON logs to stderr for log aggregation
+handler := slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{
+    Level: slog.LevelWarn,
+    AddSource: true, // Include source file/line
+})
+gtmlp.SetLogger(slog.New(handler))
+```
+
+## Security
+
+GTMLP includes built-in security features to prevent common web scraping vulnerabilities.
+
+### SSRF Protection
+
+Server-Side Request Forgery (SSRF) protection is enabled by default, blocking requests to private IP ranges.
+
+**Blocked by default:**
+- Localhost: `127.0.0.0/8`, `::1`
+- Private IPv4: `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`
+- Link-local: `169.254.0.0/16` (AWS metadata service)
+
+**Configuration:**
+
+```go
+config := &gtmlp.Config{
+    Container: "//div[@class='product']",
+    Fields:    fields,
+
+    // SSRF protection (default: enabled)
+    AllowPrivateIPs: false, // set true to allow private IPs
+
+    // Other settings...
+    Timeout: 30 * time.Second,
+}
+```
+
+**Example - Allow Private IPs:**
+
+```go
+// Development/testing: allow localhost
+config := &gtmlp.Config{
+    Container:       "//div",
+    Fields:          fields,
+    AllowPrivateIPs: true, // Allow private IPs
+}
+
+products, _ := gtmlp.ScrapeURL[Product](ctx, "http://localhost:8080", config)
+```
+
+**SSRF Error Example:**
+
+```go
+products, err := gtmlp.ScrapeURL[Product](ctx, "http://169.254.169.254/", config)
+// Error: network error: URL validation failed
+//   SSRF protection: link-local IP access blocked (169.254.169.254)
+```
+
+### Custom URL Validator
+
+Add custom URL validation logic using `URLValidator`:
+
+```go
+config := &gtmlp.Config{
+    Container: "//div",
+    Fields:    fields,
+
+    // Custom validator (runs after SSRF check)
+    URLValidator: func(url string) error {
+        // Only allow specific domains
+        allowedDomains := []string{"example.com", "api.example.com"}
+
+        u, _ := url.Parse(url)
+        for _, domain := range allowedDomains {
+            if u.Host == domain || strings.HasSuffix(u.Host, "."+domain) {
+                return nil
+            }
+        }
+
+        return fmt.Errorf("domain %s not in allowlist", u.Host)
+    },
+}
+```
+
+**Common Use Cases:**
+
+**1. Domain Allowlist:**
+```go
+URLValidator: func(url string) error {
+    if !strings.Contains(url, "trusted-domain.com") {
+        return errors.New("domain not allowed")
+    }
+    return nil
+}
+```
+
+**2. Protocol Restriction:**
+```go
+URLValidator: func(url string) error {
+    if !strings.HasPrefix(url, "https://") {
+        return errors.New("only HTTPS allowed")
+    }
+    return nil
+}
+```
+
+**3. Rate Limiting Check:**
+```go
+URLValidator: func(url string) error {
+    if isRateLimited(url) {
+        return errors.New("rate limit exceeded")
+    }
+    return nil
+}
+```
+
+### Security Best Practices
+
+**1. Always use HTTPS in production:**
+```go
+URLValidator: func(url string) error {
+    if strings.HasPrefix(url, "http://") {
+        return errors.New("HTTP not allowed in production")
+    }
+    return nil
+}
+```
+
+**2. Validate user-provided URLs:**
+```go
+// Never scrape user input without validation
+userURL := getUserInput()
+
+// Validate before scraping
+config.URLValidator = func(url string) error {
+    if !isValidDomain(url) {
+        return errors.New("invalid domain")
+    }
+    return nil
+}
+
+products, _ := gtmlp.ScrapeURL[Product](ctx, userURL, config)
+```
+
+**3. Set timeouts:**
+```go
+config := &gtmlp.Config{
+    Timeout: 30 * time.Second, // Prevent hanging
+    // ...
+}
+```
+
+**4. Limit pagination:**
+```go
+config := &gtmlp.Config{
+    Pagination: &gtmlp.PaginationConfig{
+        MaxPages: 50,              // Limit pages
+        Timeout:  10 * time.Minute, // Total timeout
+    },
+}
+```
+
+**5. Monitor for SSRF attempts:**
+```go
+products, err := gtmlp.ScrapeURL[Product](ctx, url, config)
+if err != nil && strings.Contains(err.Error(), "SSRF protection") {
+    log.Warn("SSRF attempt detected", "url", url, "error", err)
+    metrics.IncrementSSRFAttempts()
+}
+```
+
+For more security information, see [SECURITY.md](../SECURITY.md).
+
 ## Fallback XPath Chains
 
 GTMLP supports fallback XPath chains using `altXpath` and `altContainer` to handle varying HTML structures gracefully. This is useful when:
@@ -523,8 +835,7 @@ GTMLP supports automatic pagination to scrape multi-page listings.
     "type": "next-link",
     "nextSelector": "//a[@rel='next']/@href",
     "altSelectors": ["//a[contains(@class, 'next')]/@href"],
-    "maxPages": 50,
-    "enableLogging": true
+    "maxPages": 50
   }
 }
 ```
@@ -578,7 +889,7 @@ for _, pageURL := range info.URLs {
 - **Duplicate detection** - Prevents circular references with warnings
 - **Relative URL resolution** - Auto-convert relative → absolute URLs
 - **Safety limits** - `maxPages` (default: 100), `timeout` (default: 10m)
-- **Progress logging** - Optional with timestamps (`enableLogging: true`)
+- **Progress logging** - Use `SetLogLevel(slog.LevelInfo)` to see pagination progress
 - **Error handling** - Returns partial results on failure
 
 ### Configuration Reference
@@ -592,8 +903,25 @@ type PaginationConfig struct {
     Pipes         []string      // URL transformation pipes
     MaxPages      int           // Max pages (default: 100)
     Timeout       time.Duration // Total timeout (default: 10m)
-    EnableLogging bool          // Progress logging (default: false)
 }
+```
+
+**Logging Pagination Progress:**
+
+```go
+import "log/slog"
+
+// Enable pagination logging
+gtmlp.SetLogLevel(slog.LevelInfo)
+
+// Logs will show:
+// - "pagination starting" - When pagination begins
+// - "pagination page scraped" - After each page
+// - "pagination completed" - When finished
+// - "pagination duplicate url" - If duplicate detected
+
+config, _ := gtmlp.LoadConfig("selectors.json", nil)
+products, _ := gtmlp.ScrapeURL[Product](ctx, url, config)
 ```
 
 ### Examples
@@ -981,6 +1309,13 @@ type Config struct {
     MaxRetries int
     Proxy      string
     Headers    map[string]string
+
+    // Security options
+    URLValidator    func(string) error    // Custom URL validator
+    AllowPrivateIPs bool                  // Allow private IPs (default: false)
+
+    // Pagination options
+    Pagination *PaginationConfig          // Pagination configuration
 }
 ```
 

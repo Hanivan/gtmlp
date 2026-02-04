@@ -1,6 +1,7 @@
 package main
 
 import (
+    "log/slog"
 	"context"
 	"fmt"
 	"log"
@@ -10,12 +11,14 @@ import (
 
 // EcommerceProduct represents an item from the ecommerce test site
 type EcommerceProduct struct {
-	Name  string `json:"name"`
-	Price string `json:"price"`
-	Link  string `json:"link"`
+	Name  string  `json:"name"`
+	Price float64 `json:"price"`
+	Link  string  `json:"link"`
 }
 
 func main() {
+    // Set log level for development
+    gtmlp.SetLogLevel(slog.LevelInfo)
 	// Load selector configuration from YAML file
 	config, err := gtmlp.LoadConfig("selectors.yaml", nil)
 	if err != nil {
@@ -33,7 +36,7 @@ func main() {
 	fmt.Printf("Found %d products:\n\n", len(products))
 	for i, p := range products {
 		fmt.Printf("%d. %s\n", i+1, p.Name)
-		fmt.Printf("   Price: %s\n", p.Price)
+		fmt.Printf("   Price: $%.2f\n", p.Price)
 		fmt.Printf("   Link: %s\n\n", p.Link)
 	}
 }

@@ -1,6 +1,7 @@
 package main
 
 import (
+    "log/slog"
 	"context"
 	_ "embed"
 	"fmt"
@@ -20,6 +21,8 @@ type Product struct {
 }
 
 func main() {
+    // Set log level for development
+    gtmlp.SetLogLevel(slog.LevelInfo)
 	// Parse embedded config using ParseConfig (no file I/O needed)
 	// This is useful for:
 	// - Single-binary deployments (no external config files needed)

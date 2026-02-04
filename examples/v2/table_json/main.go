@@ -1,6 +1,7 @@
 package main
 
 import (
+    "log/slog"
 	"context"
 	"fmt"
 	"log"
@@ -18,6 +19,8 @@ type TableProduct struct {
 }
 
 func main() {
+    // Set log level for development
+    gtmlp.SetLogLevel(slog.LevelInfo)
 	// Load selector configuration
 	config, err := gtmlp.LoadConfig("table_selectors.json", nil)
 	if err != nil {

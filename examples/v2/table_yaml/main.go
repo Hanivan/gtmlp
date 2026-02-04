@@ -1,6 +1,7 @@
 package main
 
 import (
+    "log/slog"
 	"context"
 	"fmt"
 	"log"
@@ -18,6 +19,8 @@ type TableProduct struct {
 }
 
 func main() {
+    // Set log level for development
+    gtmlp.SetLogLevel(slog.LevelInfo)
 	// Load selector configuration from YAML file
 	config, err := gtmlp.LoadConfig("selectors.yaml", nil)
 	if err != nil {

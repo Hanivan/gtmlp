@@ -1,6 +1,7 @@
 package main
 
 import (
+    "log/slog"
 	"context"
 	"fmt"
 	"log"
@@ -16,6 +17,8 @@ type EcommerceProduct struct {
 }
 
 func main() {
+    // Set log level for development
+    gtmlp.SetLogLevel(slog.LevelInfo)
 	// Load selector configuration
 	config, err := gtmlp.LoadConfig("ecommerce_selectors.json", nil)
 	if err != nil {

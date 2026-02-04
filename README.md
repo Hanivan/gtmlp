@@ -11,6 +11,8 @@ Type-safe HTML scraping with XPath selectors and external configuration.
 - **Fallback XPath chains** (`altXpath`, `altContainer`) for handling varying HTML structures
 - **Data transformation pipes** (trim, int/float conversion, regex, URL parsing, etc.)
 - **Custom pipe registration** for domain-specific transformations
+- **Structured logging** with configurable levels (slog-based)
+- **SSRF protection** - Blocks private IPs by default
 - **Health checks** for URLs
 - **Production ready** (retries, proxy, timeouts)
 
@@ -56,6 +58,58 @@ var configYAML string
 config, _ := gtmlp.ParseConfig(configYAML, gtmlp.FormatYAML, nil)
 products, _ := gtmlp.ScrapeURL[Product](context.Background(), "https://example.com", config)
 ```
+
+## Logging
+
+Configure log levels for different environments:
+
+```go
+import "log/slog"
+
+// Development: see HTTP requests and scraping details
+gtmlp.SetLogLevel(slog.LevelInfo)
+
+// Troubleshooting: see XPath evaluation and fallbacks
+gtmlp.SetLogLevel(slog.LevelDebug)
+
+// Production: warnings and errors only (default)
+gtmlp.SetLogLevel(slog.LevelWarn)
+
+// Custom handler (JSON format, custom writer, etc.)
+handler := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo})
+gtmlp.SetLogger(slog.New(handler))
+```
+
+**Log levels:**
+- `Debug` - XPath evaluation, fallback usage, field extraction
+- `Info` - HTTP requests, scraping progress, pagination
+- `Warn` - Fallback usage, HTTP warnings, duplicate URLs (default)
+- `Error` - HTTP failures, parsing errors, validation failures
+
+## Security
+
+GTMLP includes built-in SSRF (Server-Side Request Forgery) protection:
+
+```go
+config := &gtmlp.Config{
+    Container: "//div[@class='product']",
+    Fields:    fields,
+
+    // SSRF protection (default: enabled)
+    // Blocks: localhost, 127.0.0.1, 10.x.x.x, 192.168.x.x, 169.254.169.254
+    AllowPrivateIPs: false, // set true to allow private IPs
+
+    // Custom URL validator
+    URLValidator: func(url string) error {
+        if !strings.Contains(url, "example.com") {
+            return errors.New("domain not allowed")
+        }
+        return nil
+    },
+}
+```
+
+See **[SECURITY.md](SECURITY.md)** for security best practices.
 
 ## Usage
 
@@ -124,8 +178,7 @@ Auto-follow pagination or extract URLs for manual control:
     "type": "next-link",
     "nextSelector": "//a[@rel='next']/@href",
     "altSelectors": ["//a[contains(text(), 'Next')]/@href"],
-    "maxPages": 50,
-    "enableLogging": true
+    "maxPages": 50
   }
 }
 ```

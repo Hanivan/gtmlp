@@ -1,6 +1,7 @@
 package main
 
 import (
+    "context"
     "fmt"
     "log"
     "github.com/Hanivan/gtmlp"
@@ -18,7 +19,7 @@ func main() {
         log.Fatal(err)
     }
 
-    products, err := gtmlp.ScrapeURL[Product]("https://example.com/products", config)
+    products, err := gtmlp.ScrapeURL[Product](context.Background(), "https://example.com/products", config)
     if err != nil {
         log.Fatal(err)
     }

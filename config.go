@@ -55,7 +55,7 @@ func LoadConfig(path string, envMapping *EnvMapping) (*Config, error) {
 // ParseConfig parses config from string
 func ParseConfig(data string, format ConfigFormat, envMapping *EnvMapping) (*Config, error) {
 	cfg := &Config{
-		Fields:     make(map[string]string),
+		Fields:     make(map[string]FieldConfig),
 		Timeout:    30 * time.Second,
 		UserAgent:  "GTMLP/2.0",
 		RandomUA:   false,

@@ -1,8 +1,8 @@
 {
   "container": "//div[@class='product']",
   "fields": {
-    "name": ".//h2/text()",
-    "price": ".//span[@class='price']/text()",
-    "link": ".//a/@href"
+    "name": {"xpath": ".//h2/text()"},
+    "price": {"xpath": ".//span[@class='price']/text()"},
+    "link": {"xpath": ".//a/@href"}
   }
 }

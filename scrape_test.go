@@ -1,6 +1,7 @@
 package gtmlp
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -39,14 +40,14 @@ const testHTMLEmpty = `<html><body></body></html>`
 func TestScrapeTyped_Success(t *testing.T) {
 	config := &Config{
 		Container: `//div[@class="product"]`,
-		Fields: map[string]string{
-			"name":  `.//h2/text()`,
-			"price": `.//span[@class="price"]/text()`,
+		Fields: map[string]FieldConfig{
+			"name":  {XPath: `.//h2/text()`},
+			"price": {XPath: `.//span[@class="price"]/text()`},
 		},
 		Timeout: 30 * time.Second,
 	}
 
-	results, err := Scrape[Product](testHTML, config)
+	results, err := Scrape[Product](context.Background(), testHTML, config)
 
 	if err != nil {
 		t.Fatalf("Scrape failed: %v", err)
@@ -77,13 +78,13 @@ func TestScrapeTyped_Success(t *testing.T) {
 func TestScrapeTyped_EmptyResults(t *testing.T) {
 	config := &Config{
 		Container: `//div[@class="nonexistent"]`,
-		Fields: map[string]string{
-			"name": `.//h2/text()`,
+		Fields: map[string]FieldConfig{
+			"name": {XPath: `.//h2/text()`},
 		},
 		Timeout: 30 * time.Second,
 	}
 
-	results, err := Scrape[Product](testHTMLEmpty, config)
+	results, err := Scrape[Product](context.Background(), testHTMLEmpty, config)
 
 	if err != nil {
 		t.Fatalf("Scrape failed: %v", err)
@@ -105,8 +106,8 @@ func TestScrapeTyped_InvalidConfig(t *testing.T) {
 			name: "empty container",
 			config: &Config{
 				Container: "",
-				Fields: map[string]string{
-					"name": `.//h2/text()`,
+				Fields: map[string]FieldConfig{
+					"name": {XPath: `.//h2/text()`},
 				},
 				Timeout: 30 * time.Second,
 			},
@@ -116,7 +117,7 @@ func TestScrapeTyped_InvalidConfig(t *testing.T) {
 			name: "no fields",
 			config: &Config{
 				Container: `//div[@class="product"]`,
-				Fields:    map[string]string{},
+				Fields:    map[string]FieldConfig{},
 				Timeout:   30 * time.Second,
 			},
 			wantErr: "config error: at least one field is required",
@@ -134,7 +135,7 @@ func TestScrapeTyped_InvalidConfig(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			results, err := Scrape[Product](testHTML, tt.config)
+			results, err := Scrape[Product](context.Background(), testHTML, tt.config)
 
 			if err == nil {
 				t.Fatal("Expected error, got nil")
@@ -155,13 +156,13 @@ func TestScrapeTyped_InvalidConfig(t *testing.T) {
 func TestScrapeTyped_EmptyHTML(t *testing.T) {
 	config := &Config{
 		Container: `//div[@class="product"]`,
-		Fields: map[string]string{
-			"name": `.//h2/text()`,
+		Fields: map[string]FieldConfig{
+			"name": {XPath: `.//h2/text()`},
 		},
 		Timeout: 30 * time.Second,
 	}
 
-	results, err := Scrape[Product]("", config)
+	results, err := Scrape[Product](context.Background(), "", config)
 
 	// Should not error, just return empty results
 	if err != nil {
@@ -177,14 +178,14 @@ func TestScrapeTyped_EmptyHTML(t *testing.T) {
 func TestScrapeUntyped_Success(t *testing.T) {
 	config := &Config{
 		Container: `//div[@class="product"]`,
-		Fields: map[string]string{
-			"name":  `.//h2/text()`,
-			"price": `.//span[@class="price"]/text()`,
+		Fields: map[string]FieldConfig{
+			"name":  {XPath: `.//h2/text()`},
+			"price": {XPath: `.//span[@class="price"]/text()`},
 		},
 		Timeout: 30 * time.Second,
 	}
 
-	results, err := ScrapeUntyped(testHTML, config)
+	results, err := ScrapeUntyped(context.Background(), testHTML, config)
 
 	if err != nil {
 		t.Fatalf("ScrapeUntyped failed: %v", err)
@@ -215,13 +216,13 @@ func TestScrapeUntyped_Success(t *testing.T) {
 func TestScrapeUntyped_EmptyResults(t *testing.T) {
 	config := &Config{
 		Container: `//div[@class="nonexistent"]`,
-		Fields: map[string]string{
-			"name": `.//h2/text()`,
+		Fields: map[string]FieldConfig{
+			"name": {XPath: `.//h2/text()`},
 		},
 		Timeout: 30 * time.Second,
 	}
 
-	results, err := ScrapeUntyped(testHTMLEmpty, config)
+	results, err := ScrapeUntyped(context.Background(), testHTMLEmpty, config)
 
 	if err != nil {
 		t.Fatalf("ScrapeUntype failed: %v", err)
@@ -236,13 +237,13 @@ func TestScrapeUntyped_EmptyResults(t *testing.T) {
 func TestScrapeUntyped_InvalidConfig(t *testing.T) {
 	config := &Config{
 		Container: "",
-		Fields: map[string]string{
-			"name": `.//h2/text()`,
+		Fields: map[string]FieldConfig{
+			"name": {XPath: `.//h2/text()`},
 		},
 		Timeout: 30 * time.Second,
 	}
 
-	results, err := ScrapeUntyped(testHTML, config)
+	results, err := ScrapeUntyped(context.Background(), testHTML, config)
 
 	if err == nil {
 		t.Fatal("Expected error, got nil")
@@ -257,13 +258,13 @@ func TestScrapeUntyped_InvalidConfig(t *testing.T) {
 func TestScrapeUntyped_EmptyHTML(t *testing.T) {
 	config := &Config{
 		Container: `//div[@class="product"]`,
-		Fields: map[string]string{
-			"name": `.//h2/text()`,
+		Fields: map[string]FieldConfig{
+			"name": {XPath: `.//h2/text()`},
 		},
 		Timeout: 30 * time.Second,
 	}
 
-	results, err := ScrapeUntyped("", config)
+	results, err := ScrapeUntyped(context.Background(), "", config)
 
 	// Should not error, just return empty results
 	if err != nil {
@@ -281,13 +282,13 @@ func TestExtractValue_Text(t *testing.T) {
 	// For now, we'll test it indirectly through Scrape
 	config := &Config{
 		Container: `//div[@class="product"][1]`,
-		Fields: map[string]string{
-			"name": `.//h2/text()`,
+		Fields: map[string]FieldConfig{
+			"name": {XPath: `.//h2/text()`},
 		},
 		Timeout: 30 * time.Second,
 	}
 
-	results, err := ScrapeUntyped(testHTML, config)
+	results, err := ScrapeUntyped(context.Background(), testHTML, config)
 
 	if err != nil {
 		t.Fatalf("ScrapeUntyped failed: %v", err)
@@ -308,14 +309,14 @@ func TestMapToStruct(t *testing.T) {
 	// For now, we'll test it indirectly through Scrape
 	config := &Config{
 		Container: `//div[@class="product"][1]`,
-		Fields: map[string]string{
-			"name":  `.//h2/text()`,
-			"price": `.//span[@class="price"]/text()`,
+		Fields: map[string]FieldConfig{
+			"name":  {XPath: `.//h2/text()`},
+			"price": {XPath: `.//span[@class="price"]/text()`},
 		},
 		Timeout: 30 * time.Second,
 	}
 
-	results, err := Scrape[Product](testHTML, config)
+	results, err := Scrape[Product](context.Background(), testHTML, config)
 
 	if err != nil {
 		t.Fatalf("Scrape failed: %v", err)
@@ -337,15 +338,15 @@ func TestMapToStruct(t *testing.T) {
 func TestScrape_WithAttributes(t *testing.T) {
 	config := &Config{
 		Container: `//div[@class="product"]`,
-		Fields: map[string]string{
-			"name":  `.//h2/text()`,
-			"price": `.//span[@class="price"]/text()`,
-			"link":  `.//a/@href`,
+		Fields: map[string]FieldConfig{
+			"name":  {XPath: `.//h2/text()`},
+			"price": {XPath: `.//span[@class="price"]/text()`},
+			"link":  {XPath: `.//a/@href`},
 		},
 		Timeout: 30 * time.Second,
 	}
 
-	results, err := Scrape[ProductWithAttr](testHTML, config)
+	results, err := Scrape[ProductWithAttr](context.Background(), testHTML, config)
 
 	if err != nil {
 		t.Fatalf("Scrape failed: %v", err)
@@ -376,15 +377,15 @@ func TestScrape_WithAttributes(t *testing.T) {
 func TestScrape_MissingFields(t *testing.T) {
 	config := &Config{
 		Container: `//div[@class="product"]`,
-		Fields: map[string]string{
-			"name":    `.//h2/text()`,
-			"price":   `.//span[@class="price"]/text()`,
-			"missing": `.//span[@class="missing"]/text()`,
+		Fields: map[string]FieldConfig{
+			"name":    {XPath: `.//h2/text()`},
+			"price":   {XPath: `.//span[@class="price"]/text()`},
+			"missing": {XPath: `.//span[@class="missing"]/text()`},
 		},
 		Timeout: 30 * time.Second,
 	}
 
-	results, err := ScrapeUntyped(testHTML, config)
+	results, err := ScrapeUntyped(context.Background(), testHTML, config)
 
 	if err != nil {
 		t.Fatalf("ScrapeUntyped failed: %v", err)
@@ -412,14 +413,14 @@ func TestScrapeURL_Success(t *testing.T) {
 
 	config := &Config{
 		Container: `//div[@class="product"]`,
-		Fields: map[string]string{
-			"name":  `.//h2/text()`,
-			"price": `.//span[@class="price"]/text()`,
+		Fields: map[string]FieldConfig{
+			"name":  {XPath: `.//h2/text()`},
+			"price": {XPath: `.//span[@class="price"]/text()`},
 		},
 		Timeout: 30 * time.Second,
 	}
 
-	results, err := ScrapeURL[Product](server.URL, config)
+	results, err := ScrapeURL[Product](context.Background(), server.URL, config)
 
 	if err != nil {
 		t.Fatalf("ScrapeURL failed: %v", err)
@@ -457,13 +458,13 @@ func TestScrapeURL_EmptyResults(t *testing.T) {
 
 	config := &Config{
 		Container: `//div[@class="nonexistent"]`,
-		Fields: map[string]string{
-			"name": `.//h2/text()`,
+		Fields: map[string]FieldConfig{
+			"name": {XPath: `.//h2/text()`},
 		},
 		Timeout: 30 * time.Second,
 	}
 
-	results, err := ScrapeURL[Product](server.URL, config)
+	results, err := ScrapeURL[Product](context.Background(), server.URL, config)
 
 	if err != nil {
 		t.Fatalf("ScrapeURL failed: %v", err)
@@ -485,13 +486,13 @@ func TestScrapeURL_InvalidConfig(t *testing.T) {
 
 	config := &Config{
 		Container: "",
-		Fields: map[string]string{
-			"name": `.//h2/text()`,
+		Fields: map[string]FieldConfig{
+			"name": {XPath: `.//h2/text()`},
 		},
 		Timeout: 30 * time.Second,
 	}
 
-	results, err := ScrapeURL[Product](server.URL, config)
+	results, err := ScrapeURL[Product](context.Background(), server.URL, config)
 
 	if err == nil {
 		t.Fatal("Expected error, got nil")
@@ -506,13 +507,13 @@ func TestScrapeURL_InvalidConfig(t *testing.T) {
 func TestScrapeURL_InvalidURL(t *testing.T) {
 	config := &Config{
 		Container: `//div[@class="product"]`,
-		Fields: map[string]string{
-			"name": `.//h2/text()`,
+		Fields: map[string]FieldConfig{
+			"name": {XPath: `.//h2/text()`},
 		},
 		Timeout: 30 * time.Second,
 	}
 
-	results, err := ScrapeURL[Product]("invalid-url", config)
+	results, err := ScrapeURL[Product](context.Background(), "invalid-url", config)
 
 	if err == nil {
 		t.Fatal("Expected error for invalid URL, got nil")
@@ -532,13 +533,13 @@ func TestScrapeURL_HTTPError(t *testing.T) {
 
 	config := &Config{
 		Container: `//div[@class="product"]`,
-		Fields: map[string]string{
-			"name": `.//h2/text()`,
+		Fields: map[string]FieldConfig{
+			"name": {XPath: `.//h2/text()`},
 		},
 		Timeout: 30 * time.Second,
 	}
 
-	results, err := ScrapeURL[Product](server.URL, config)
+	results, err := ScrapeURL[Product](context.Background(), server.URL, config)
 
 	if err == nil {
 		t.Fatal("Expected error for HTTP 500, got nil")
@@ -560,15 +561,15 @@ func TestScrapeURL_WithAttributes(t *testing.T) {
 
 	config := &Config{
 		Container: `//div[@class="product"]`,
-		Fields: map[string]string{
-			"name":  `.//h2/text()`,
-			"price": `.//span[@class="price"]/text()`,
-			"link":  `.//a/@href`,
+		Fields: map[string]FieldConfig{
+			"name":  {XPath: `.//h2/text()`},
+			"price": {XPath: `.//span[@class="price"]/text()`},
+			"link":  {XPath: `.//a/@href`},
 		},
 		Timeout: 30 * time.Second,
 	}
 
-	results, err := ScrapeURL[ProductWithAttr](server.URL, config)
+	results, err := ScrapeURL[ProductWithAttr](context.Background(), server.URL, config)
 
 	if err != nil {
 		t.Fatalf("ScrapeURL failed: %v", err)
@@ -598,14 +599,14 @@ func TestScrapeURLUntyped_Success(t *testing.T) {
 
 	config := &Config{
 		Container: `//div[@class="product"]`,
-		Fields: map[string]string{
-			"name":  `.//h2/text()`,
-			"price": `.//span[@class="price"]/text()`,
+		Fields: map[string]FieldConfig{
+			"name":  {XPath: `.//h2/text()`},
+			"price": {XPath: `.//span[@class="price"]/text()`},
 		},
 		Timeout: 30 * time.Second,
 	}
 
-	results, err := ScrapeURLUntyped(server.URL, config)
+	results, err := ScrapeURLUntyped(context.Background(), server.URL, config)
 
 	if err != nil {
 		t.Fatalf("ScrapeURLUntyped failed: %v", err)
@@ -643,13 +644,13 @@ func TestScrapeURLUntyped_EmptyResults(t *testing.T) {
 
 	config := &Config{
 		Container: `//div[@class="nonexistent"]`,
-		Fields: map[string]string{
-			"name": `.//h2/text()`,
+		Fields: map[string]FieldConfig{
+			"name": {XPath: `.//h2/text()`},
 		},
 		Timeout: 30 * time.Second,
 	}
 
-	results, err := ScrapeURLUntyped(server.URL, config)
+	results, err := ScrapeURLUntyped(context.Background(), server.URL, config)
 
 	if err != nil {
 		t.Fatalf("ScrapeURLUntyped failed: %v", err)
@@ -671,13 +672,13 @@ func TestScrapeURLUntyped_InvalidConfig(t *testing.T) {
 
 	config := &Config{
 		Container: "",
-		Fields: map[string]string{
-			"name": `.//h2/text()`,
+		Fields: map[string]FieldConfig{
+			"name": {XPath: `.//h2/text()`},
 		},
 		Timeout: 30 * time.Second,
 	}
 
-	results, err := ScrapeURLUntyped(server.URL, config)
+	results, err := ScrapeURLUntyped(context.Background(), server.URL, config)
 
 	if err == nil {
 		t.Fatal("Expected error, got nil")
@@ -692,13 +693,13 @@ func TestScrapeURLUntyped_InvalidConfig(t *testing.T) {
 func TestScrapeURLUntyped_InvalidURL(t *testing.T) {
 	config := &Config{
 		Container: `//div[@class="product"]`,
-		Fields: map[string]string{
-			"name": `.//h2/text()`,
+		Fields: map[string]FieldConfig{
+			"name": {XPath: `.//h2/text()`},
 		},
 		Timeout: 30 * time.Second,
 	}
 
-	results, err := ScrapeURLUntyped("invalid-url", config)
+	results, err := ScrapeURLUntyped(context.Background(), "invalid-url", config)
 
 	if err == nil {
 		t.Fatal("Expected error for invalid URL, got nil")
@@ -718,13 +719,13 @@ func TestScrapeURLUntyped_HTTPError(t *testing.T) {
 
 	config := &Config{
 		Container: `//div[@class="product"]`,
-		Fields: map[string]string{
-			"name": `.//h2/text()`,
+		Fields: map[string]FieldConfig{
+			"name": {XPath: `.//h2/text()`},
 		},
 		Timeout: 30 * time.Second,
 	}
 
-	results, err := ScrapeURLUntyped(server.URL, config)
+	results, err := ScrapeURLUntyped(context.Background(), server.URL, config)
 
 	if err == nil {
 		t.Fatal("Expected error for HTTP 500, got nil")

@@ -86,9 +86,9 @@ func TestConfigZeroValues(t *testing.T) {
 func TestConfigFieldAssignment(t *testing.T) {
 	cfg := Config{
 		Container: "//div[@class='item']",
-		Fields: map[string]string{
-			"title":       ".//h2/text()",
-			"description": ".//p/text()",
+		Fields: map[string]FieldConfig{
+			"title":       {XPath: ".//h2/text()"},
+			"description": {XPath: ".//p/text()"},
 		},
 		Timeout:    30 * time.Second,
 		UserAgent:  "TestAgent/1.0",
@@ -108,7 +108,7 @@ func TestConfigFieldAssignment(t *testing.T) {
 		t.Errorf("Expected 2 fields, got %d", len(cfg.Fields))
 	}
 
-	if cfg.Fields["title"] != ".//h2/text()" {
+	if cfg.Fields["title"].XPath != ".//h2/text()" {
 		t.Errorf("Fields[\"title\"] assignment failed")
 	}
 
@@ -175,7 +175,7 @@ func TestPartialResultGenericType(t *testing.T) {
 
 	t.Run("with primitive int type", func(t *testing.T) {
 		result := PartialResult[int]{
-			Data: []int{1, 2, 3, 4, 5},
+			Data:   []int{1, 2, 3, 4, 5},
 			Errors: map[string]error{},
 		}
 

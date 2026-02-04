@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 
@@ -25,7 +26,7 @@ func main() {
 
 	// Scrape the table parsing challenge page
 	url := "https://www.scrapingcourse.com/table-parsing"
-	products, err := gtmlp.ScrapeURL[TableProduct](url, config)
+	products, err := gtmlp.ScrapeURL[TableProduct](context.Background(), url, config)
 	if err != nil {
 		log.Fatalf("Failed to scrape: %v", err)
 	}

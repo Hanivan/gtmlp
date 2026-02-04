@@ -1,6 +1,9 @@
 package gtmlp
 
-import "time"
+import (
+	"context"
+	"time"
+)
 
 // EnvMapping defines configurable environment variable names
 type EnvMapping struct {
@@ -20,11 +23,17 @@ var DefaultEnvMapping = &EnvMapping{
 	Proxy:      "GTMLP_PROXY",
 }
 
+// FieldConfig defines a single field's XPath and optional pipes
+type FieldConfig struct {
+	XPath string
+	Pipes []string
+}
+
 // Config holds scraping configuration
 type Config struct {
 	// XPath definitions
-	Container string            // Repeating element selector
-	Fields    map[string]string // Field name → XPath expression
+	Container string                 // Repeating element selector
+	Fields    map[string]FieldConfig // Field name → FieldConfig
 
 	// HTTP options
 	Timeout    time.Duration
@@ -40,3 +49,13 @@ type PartialResult[T any] struct {
 	Data   []T
 	Errors map[string]error
 }
+
+// PipeFunc defines a pipe transformation function
+type PipeFunc func(ctx context.Context, input string, params []string) (any, error)
+
+// WithURL adds the base URL to context for parseUrl pipe
+func WithURL(ctx context.Context, url string) context.Context {
+	return context.WithValue(ctx, contextKey("baseURL"), url)
+}
+
+type contextKey string

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 
@@ -20,7 +21,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	products, err := gtmlp.ScrapeURL[Product]("https://www.scrapingcourse.com/ecommerce/", config)
+	products, err := gtmlp.ScrapeURL[Product](context.Background(), "https://www.scrapingcourse.com/ecommerce/", config)
 	if err != nil {
 		log.Fatal(err)
 	}

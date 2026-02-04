@@ -5,8 +5,13 @@ container: "//tbody/tr[@class='product-item']"
 
 # Field definitions
 fields:
-  id: ".//td[@class='product-id']"
-  name: ".//td[@class='product-name']"
-  category: ".//td[@class='product-category']"
-  price: ".//td[@class='product-price']"
-  stock: ".//td[@class='product-stock']"
+  id:
+    xpath: ".//td[@class='product-id']"
+  name:
+    xpath: ".//td[@class='product-name']"
+  category:
+    xpath: ".//td[@class='product-category']"
+  price:
+    xpath: ".//td[@class='product-price']"
+  stock:
+    xpath: ".//td[@class='product-stock']"

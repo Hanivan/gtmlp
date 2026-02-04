@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	_ "embed"
 	"fmt"
 	"log"
@@ -31,7 +32,7 @@ func main() {
 
 	// Scrape the ecommerce test site
 	url := "https://www.scrapingcourse.com/ecommerce/"
-	products, err := gtmlp.ScrapeURL[Product](url, config)
+	products, err := gtmlp.ScrapeURL[Product](context.Background(), url, config)
 	if err != nil {
 		log.Fatalf("Failed to scrape: %v", err)
 	}

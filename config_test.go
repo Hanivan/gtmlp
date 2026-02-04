@@ -21,8 +21,8 @@ func TestLoadConfig_Success_JSON(t *testing.T) {
 		t.Fatalf("expected 1 field, got %d", len(cfg.Fields))
 	}
 
-	if cfg.Fields["name"] != ".//h2/text()" {
-		t.Errorf("expected field 'name' to be './/h2/text()', got '%s'", cfg.Fields["name"])
+	if cfg.Fields["name"].XPath != ".//h2/text()" {
+		t.Errorf("expected field 'name' to be './/h2/text()', got '%s'", cfg.Fields["name"].XPath)
 	}
 
 	// Check defaults
@@ -54,12 +54,12 @@ func TestLoadConfig_Success_YAML(t *testing.T) {
 		t.Fatalf("expected 2 fields, got %d", len(cfg.Fields))
 	}
 
-	if cfg.Fields["name"] != ".//h2/text()" {
-		t.Errorf("expected field 'name' to be './/h2/text()', got '%s'", cfg.Fields["name"])
+	if cfg.Fields["name"].XPath != ".//h2/text()" {
+		t.Errorf("expected field 'name' to be './/h2/text()', got '%s'", cfg.Fields["name"].XPath)
 	}
 
-	if cfg.Fields["price"] != ".//span[@class='price']/text()" {
-		t.Errorf("expected field 'price' to be './/span[@class='price']/text()', got '%s'", cfg.Fields["price"])
+	if cfg.Fields["price"].XPath != ".//span[@class='price']/text()" {
+		t.Errorf("expected field 'price' to be './/span[@class='price']/text()', got '%s'", cfg.Fields["price"].XPath)
 	}
 }
 
@@ -143,8 +143,8 @@ func TestParseConfig_JSON(t *testing.T) {
 	jsonData := `{
 		"container": "//div[@class='item']",
 		"fields": {
-			"title": ".//h1/text()",
-			"desc": ".//p/text()"
+			"title": {"xpath": ".//h1/text()"},
+			"desc": {"xpath": ".//p/text()"}
 		}
 	}`
 
@@ -161,12 +161,12 @@ func TestParseConfig_JSON(t *testing.T) {
 		t.Fatalf("expected 2 fields, got %d", len(cfg.Fields))
 	}
 
-	if cfg.Fields["title"] != ".//h1/text()" {
-		t.Errorf("expected field 'title' to be './/h1/text()', got '%s'", cfg.Fields["title"])
+	if cfg.Fields["title"].XPath != ".//h1/text()" {
+		t.Errorf("expected field 'title' to be './/h1/text()', got '%s'", cfg.Fields["title"].XPath)
 	}
 
-	if cfg.Fields["desc"] != ".//p/text()" {
-		t.Errorf("expected field 'desc' to be './/p/text()', got '%s'", cfg.Fields["desc"])
+	if cfg.Fields["desc"].XPath != ".//p/text()" {
+		t.Errorf("expected field 'desc' to be './/p/text()', got '%s'", cfg.Fields["desc"].XPath)
 	}
 
 	// Check defaults
@@ -183,8 +183,10 @@ func TestParseConfig_JSON(t *testing.T) {
 func TestParseConfig_YAML(t *testing.T) {
 	yamlData := `container: "//div[@class='item']"
 fields:
-  title: ".//h1/text()"
-  desc: ".//p/text()"
+  title:
+    xpath: ".//h1/text()"
+  desc:
+    xpath: ".//p/text()"
 `
 
 	cfg, err := ParseConfig(yamlData, FormatYAML, DefaultEnvMapping)
@@ -200,12 +202,12 @@ fields:
 		t.Fatalf("expected 2 fields, got %d", len(cfg.Fields))
 	}
 
-	if cfg.Fields["title"] != ".//h1/text()" {
-		t.Errorf("expected field 'title' to be './/h1/text()', got '%s'", cfg.Fields["title"])
+	if cfg.Fields["title"].XPath != ".//h1/text()" {
+		t.Errorf("expected field 'title' to be './/h1/text()', got '%s'", cfg.Fields["title"].XPath)
 	}
 
-	if cfg.Fields["desc"] != ".//p/text()" {
-		t.Errorf("expected field 'desc' to be './/p/text()', got '%s'", cfg.Fields["desc"])
+	if cfg.Fields["desc"].XPath != ".//p/text()" {
+		t.Errorf("expected field 'desc' to be './/p/text()', got '%s'", cfg.Fields["desc"].XPath)
 	}
 }
 
@@ -254,7 +256,7 @@ container: "//div"
 func TestParseConfig_DefaultValues(t *testing.T) {
 	minimalData := `{
 		"container": "//div",
-		"fields": {"title": ".//h1"}
+		"fields": {"title": {"xpath": ".//h1"}}
 	}`
 
 	cfg, err := ParseConfig(minimalData, FormatJSON, DefaultEnvMapping)
@@ -392,8 +394,10 @@ func TestApplyEnvVars_InvalidMaxRetries(t *testing.T) {
 func TestValidate_Success(t *testing.T) {
 	cfg := &Config{
 		Container: "//div[@class='product']",
-		Fields:    map[string]string{"name": ".//h2/text()"},
-		Timeout:   30 * time.Second,
+		Fields: map[string]FieldConfig{
+			"name": {XPath: ".//h2/text()"},
+		},
+		Timeout: 30 * time.Second,
 	}
 
 	err := cfg.Validate()
@@ -406,8 +410,10 @@ func TestValidate_Success(t *testing.T) {
 func TestValidate_EmptyContainer(t *testing.T) {
 	cfg := &Config{
 		Container: "",
-		Fields:    map[string]string{"name": ".//h2/text()"},
-		Timeout:   30 * time.Second,
+		Fields: map[string]FieldConfig{
+			"name": {XPath: ".//h2/text()"},
+		},
+		Timeout: 30 * time.Second,
 	}
 
 	err := cfg.Validate()
@@ -429,7 +435,7 @@ func TestValidate_EmptyContainer(t *testing.T) {
 func TestValidate_EmptyFields(t *testing.T) {
 	cfg := &Config{
 		Container: "//div[@class='product']",
-		Fields:    map[string]string{},
+		Fields:    map[string]FieldConfig{},
 		Timeout:   30 * time.Second,
 	}
 
@@ -470,8 +476,10 @@ func TestValidate_NilFields(t *testing.T) {
 func TestValidate_ZeroTimeout(t *testing.T) {
 	cfg := &Config{
 		Container: "//div[@class='product']",
-		Fields:    map[string]string{"name": ".//h2/text()"},
-		Timeout:   0,
+		Fields: map[string]FieldConfig{
+			"name": {XPath: ".//h2/text()"},
+		},
+		Timeout: 0,
 	}
 
 	err := cfg.Validate()
@@ -493,8 +501,10 @@ func TestValidate_ZeroTimeout(t *testing.T) {
 func TestValidate_NegativeTimeout(t *testing.T) {
 	cfg := &Config{
 		Container: "//div[@class='product']",
-		Fields:    map[string]string{"name": ".//h2/text()"},
-		Timeout:   -10 * time.Second,
+		Fields: map[string]FieldConfig{
+			"name": {XPath: ".//h2/text()"},
+		},
+		Timeout: -10 * time.Second,
 	}
 
 	err := cfg.Validate()

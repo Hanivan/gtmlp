@@ -68,8 +68,8 @@ func ValidateXPathURL(url string, config *Config) (map[string]ValidationResult, 
 	// Use container and fields from config
 	xpaths := make(map[string]string)
 	xpaths["container"] = config.Container
-	for field, xpath := range config.Fields {
-		xpaths[field] = xpath
+	for field, fieldConfig := range config.Fields {
+		xpaths[field] = fieldConfig.XPath
 	}
 
 	results := ValidateXPath(html, xpaths)

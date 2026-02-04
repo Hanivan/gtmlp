@@ -1,7 +1,9 @@
 package gtmlp
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"strings"
 
 	"github.com/antchfx/htmlquery"
@@ -12,7 +14,7 @@ import (
 // Scrape extracts data from HTML using XPath with a typed result.
 // It finds all container nodes and extracts fields from each one.
 // Returns an empty slice if no containers are found.
-func Scrape[T any](html string, config *Config) ([]T, error) {
+func Scrape[T any](ctx context.Context, html string, config *Config) ([]T, error) {
 	// Validate config
 	if err := config.Validate(); err != nil {
 		return nil, err
@@ -48,8 +50,11 @@ func Scrape[T any](html string, config *Config) ([]T, error) {
 
 		// Extract fields from this container
 		fieldData := make(map[string]any)
-		for fieldName, fieldXPath := range config.Fields {
-			value := extractField(containerNode, fieldXPath)
+		for fieldName, fieldConfig := range config.Fields {
+			value, err := extractFieldWithPipes(ctx, containerNode, fieldConfig)
+			if err != nil {
+				return nil, err
+			}
 			fieldData[fieldName] = value
 		}
 
@@ -77,7 +82,7 @@ func Scrape[T any](html string, config *Config) ([]T, error) {
 // ScrapeUntyped extracts data from HTML using XPath, returning map slices.
 // It finds all container nodes and extracts fields from each one.
 // Returns an empty slice if no containers are found.
-func ScrapeUntyped(html string, config *Config) ([]map[string]any, error) {
+func ScrapeUntyped(ctx context.Context, html string, config *Config) ([]map[string]any, error) {
 	// Validate config
 	if err := config.Validate(); err != nil {
 		return nil, err
@@ -113,8 +118,11 @@ func ScrapeUntyped(html string, config *Config) ([]map[string]any, error) {
 
 		// Extract fields from this container
 		fieldData := make(map[string]any)
-		for fieldName, fieldXPath := range config.Fields {
-			value := extractField(containerNode, fieldXPath)
+		for fieldName, fieldConfig := range config.Fields {
+			value, err := extractFieldWithPipes(ctx, containerNode, fieldConfig)
+			if err != nil {
+				return nil, err
+			}
 			fieldData[fieldName] = value
 		}
 
@@ -176,6 +184,49 @@ func extractValue(node *html.Node) any {
 	return strings.TrimSpace(htmlquery.InnerText(node))
 }
 
+// extractFieldWithPipes extracts a value and applies pipes
+func extractFieldWithPipes(ctx context.Context, containerNode *html.Node, fieldConfig FieldConfig) (any, error) {
+	// Extract raw value with XPath
+	rawValue := extractField(containerNode, fieldConfig.XPath)
+
+	// Convert to string for pipe processing
+	inputStr, ok := rawValue.(string)
+	if !ok {
+		inputStr = fmt.Sprintf("%v", rawValue)
+	}
+
+	// Apply pipes if defined
+	value := any(inputStr)
+	if len(fieldConfig.Pipes) > 0 {
+		for _, pipeDef := range fieldConfig.Pipes {
+			pipeName, params := parsePipeDefinition(pipeDef)
+			pipe := getPipe(pipeName)
+
+			if pipe == nil {
+				return "", &ScrapeError{
+					Type:    ErrTypePipe,
+					Message: fmt.Sprintf("unknown pipe '%s'", pipeName),
+				}
+			}
+
+			result, err := pipe(ctx, inputStr, params)
+			if err != nil {
+				return "", &ScrapeError{
+					Type:    ErrTypePipe,
+					Message: fmt.Sprintf("pipe '%s' failed", pipeName),
+					Cause:   &PipeError{PipeName: pipeName, Input: inputStr, Params: params, Cause: err},
+				}
+			}
+
+			value = result
+			// Convert result to string for next pipe
+			inputStr = fmt.Sprintf("%v", result)
+		}
+	}
+
+	return value, nil
+}
+
 // mapToStruct converts a map to a struct using JSON tags
 func mapToStruct(m map[string]any, target any) error {
 	// Convert map to JSON
@@ -189,19 +240,23 @@ func mapToStruct(m map[string]any, target any) error {
 }
 
 // ScrapeURL fetches a URL and scrapes it with config (typed)
-func ScrapeURL[T any](url string, config *Config) ([]T, error) {
+func ScrapeURL[T any](ctx context.Context, url string, config *Config) ([]T, error) {
 	html, err := fetchHTML(url, config)
 	if err != nil {
 		return nil, err
 	}
-	return Scrape[T](html, config)
+	// Add URL to context for parseUrl pipe
+	ctx = WithURL(ctx, url)
+	return Scrape[T](ctx, html, config)
 }
 
 // ScrapeURLUntyped fetches a URL and scrapes it, returning maps (no type parameter)
-func ScrapeURLUntyped(url string, config *Config) ([]map[string]any, error) {
+func ScrapeURLUntyped(ctx context.Context, url string, config *Config) ([]map[string]any, error) {
 	html, err := fetchHTML(url, config)
 	if err != nil {
 		return nil, err
 	}
-	return ScrapeUntyped(html, config)
+	// Add URL to context for parseUrl pipe
+	ctx = WithURL(ctx, url)
+	return ScrapeUntyped(ctx, html, config)
 }

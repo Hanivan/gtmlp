@@ -191,9 +191,9 @@ func TestValidateXPathURL(t *testing.T) {
 		Timeout:   10 * time.Second,
 		UserAgent: "GTMLP/2.0",
 		Container: "//div[@class='product']",
-		Fields: map[string]string{
-			"title": "//h1",
-			"price": "//span[@class='price']",
+		Fields: map[string]FieldConfig{
+			"title": {XPath: "//h1"},
+			"price": {XPath: "//span[@class='price']"},
 		},
 	}
 

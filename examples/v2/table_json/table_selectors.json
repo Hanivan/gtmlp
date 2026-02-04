@@ -1,10 +1,10 @@
 {
   "container": "//tbody/tr[@class='product-item']",
   "fields": {
-    "id": ".//td[@class='product-id']/text()",
-    "name": ".//td[@class='product-name']/text()",
-    "category": ".//td[@class='product-category']/text()",
-    "price": ".//td[@class='product-price']/text()",
-    "stock": ".//td[@class='product-stock']/text()"
+    "id": {"xpath": ".//td[@class='product-id']/text()"},
+    "name": {"xpath": ".//td[@class='product-name']/text()"},
+    "category": {"xpath": ".//td[@class='product-category']/text()"},
+    "price": {"xpath": ".//td[@class='product-price']/text()"},
+    "stock": {"xpath": ".//td[@class='product-stock']/text()"}
   }
 }

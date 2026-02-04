@@ -14,6 +14,7 @@ const (
 	ErrTypeXPath      ErrorType = "xpath"
 	ErrTypeConfig     ErrorType = "config"
 	ErrTypeValidation ErrorType = "validation"
+	ErrTypePipe       ErrorType = "pipe"
 )
 
 // ScrapeError is a typed error with context
@@ -46,4 +47,20 @@ func Is(err error, errorType ErrorType) bool {
 		return scrapeErr.Type == errorType
 	}
 	return false
+}
+
+// PipeError represents an error that occurred during pipe transformation
+type PipeError struct {
+	PipeName string
+	Input    string
+	Params   []string
+	Cause    error
+}
+
+func (e *PipeError) Error() string {
+	return fmt.Sprintf("pipe '%s' failed: %v", e.PipeName, e.Cause)
+}
+
+func (e *PipeError) Unwrap() error {
+	return e.Cause
 }

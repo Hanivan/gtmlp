@@ -1,0 +1,24 @@
+{
+  "container": "//div[@class='product']",
+  "fields": {
+    "name": {
+      "xpath": ".//h2/text()",
+      "pipes": ["trim"]
+    },
+    "price": {
+      "xpath": ".//span[@class='price']/text()",
+      "pipes": ["trim", "tofloat"]
+    }
+  },
+  "pagination": {
+    "type": "next-link",
+    "nextSelector": "//a[@rel='next']/@href",
+    "altSelectors": [
+      "//a[contains(@class, 'next')]/@href",
+      "//a[contains(text(), 'Next')]/@href"
+    ],
+    "pipes": ["trim"],
+    "maxPages": 50,
+    "enableLogging": true
+  }
+}

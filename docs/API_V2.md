@@ -8,6 +8,7 @@ Complete API reference for GTMLP v2.0 - the configuration-based, type-safe scrap
 - [Core Scraping Functions](#core-scraping-functions)
 - [Config Loading](#config-loading)
 - [Fallback XPath Chains](#fallback-xpath-chains)
+- [Pagination](#pagination)
 - [Data Transformation Pipes](#data-transformation-pipes)
 - [XPath Validation](#xpath-validation)
 - [Health Check](#health-check)
@@ -508,6 +509,98 @@ This design ensures:
   ]
 }
 ```
+
+## Pagination
+
+GTMLP supports automatic pagination to scrape multi-page listings.
+
+### Pagination Types
+
+**Next-Link Pagination** - Follow "Next" links sequentially:
+```json
+{
+  "pagination": {
+    "type": "next-link",
+    "nextSelector": "//a[@rel='next']/@href",
+    "altSelectors": ["//a[contains(@class, 'next')]/@href"],
+    "maxPages": 50,
+    "enableLogging": true
+  }
+}
+```
+
+**Numbered Pagination** - Extract all page links:
+```json
+{
+  "pagination": {
+    "type": "numbered",
+    "pageSelector": "//div[@class='pagination']//a/@href",
+    "maxPages": 20
+  }
+}
+```
+
+### Usage Modes
+
+**Auto-Follow** (combined results):
+```go
+config, _ := gtmlp.LoadConfig("selectors.json", nil)
+
+// Returns all items from all pages in a single array
+products, err := gtmlp.ScrapeURL[Product](ctx, "https://example.com/products", config)
+```
+
+**Page-Separated** (with metadata):
+```go
+// Returns results grouped by page
+results, err := gtmlp.ScrapeURLWithPages[Product](ctx, url, config)
+
+for _, page := range results.Pages {
+    fmt.Printf("Page %d: %d items at %s\n", page.PageNum, len(page.Items), page.URL)
+}
+```
+
+**Extract-Only** (manual control):
+```go
+// Get pagination URLs without scraping
+info, err := gtmlp.ExtractPaginationURLs(ctx, url, config)
+
+for _, pageURL := range info.URLs {
+    // Scrape each page manually
+    items, _ := gtmlp.ScrapeURL[Product](ctx, pageURL, config)
+}
+```
+
+### Pagination Features
+
+- **Fallback selectors** - `altSelectors` like `altXpath`
+- **Pipe support** - Transform pagination URLs
+- **Duplicate detection** - Prevents circular references with warnings
+- **Relative URL resolution** - Auto-convert relative → absolute URLs
+- **Safety limits** - `maxPages` (default: 100), `timeout` (default: 10m)
+- **Progress logging** - Optional with timestamps (`enableLogging: true`)
+- **Error handling** - Returns partial results on failure
+
+### Configuration Reference
+
+```go
+type PaginationConfig struct {
+    Type          string        // "next-link" or "numbered"
+    NextSelector  string        // XPath for next link (next-link)
+    AltSelectors  []string      // Fallback selectors
+    PageSelector  string        // XPath for all pages (numbered)
+    Pipes         []string      // URL transformation pipes
+    MaxPages      int           // Max pages (default: 100)
+    Timeout       time.Duration // Total timeout (default: 10m)
+    EnableLogging bool          // Progress logging (default: false)
+}
+```
+
+### Examples
+
+See working examples:
+- **[pagination_next_json](../examples/v2/pagination_next_json)** - Next-link pagination
+- **[pagination_numbered_yaml](../examples/v2/pagination_numbered_yaml)** - Numbered pagination
 
 ## Data Transformation Pipes
 

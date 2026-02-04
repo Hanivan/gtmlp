@@ -299,6 +299,22 @@ func mapToStruct(m map[string]any, target any) error {
 
 // ScrapeURL fetches a URL and scrapes it with config (typed)
 func ScrapeURL[T any](ctx context.Context, url string, config *Config) ([]T, error) {
+	// Check if pagination is configured
+	if config.Pagination != nil {
+		// Use pagination logic
+		results, err := scrapeWithPagination[T](ctx, url, config, false)
+		if err != nil {
+			return nil, err
+		}
+		// Return combined items from all pages
+		var allItems []T
+		for _, page := range results.Pages {
+			allItems = append(allItems, page.Items...)
+		}
+		return allItems, nil
+	}
+
+	// No pagination, single page scraping (backward compatible)
 	html, err := fetchHTML(url, config)
 	if err != nil {
 		return nil, err
@@ -310,6 +326,22 @@ func ScrapeURL[T any](ctx context.Context, url string, config *Config) ([]T, err
 
 // ScrapeURLUntyped fetches a URL and scrapes it, returning maps (no type parameter)
 func ScrapeURLUntyped(ctx context.Context, url string, config *Config) ([]map[string]any, error) {
+	// Check if pagination is configured
+	if config.Pagination != nil {
+		// Use pagination logic
+		results, err := scrapeWithPagination[map[string]any](ctx, url, config, false)
+		if err != nil {
+			return nil, err
+		}
+		// Return combined items from all pages
+		var allItems []map[string]any
+		for _, page := range results.Pages {
+			allItems = append(allItems, page.Items...)
+		}
+		return allItems, nil
+	}
+
+	// No pagination, single page scraping (backward compatible)
 	html, err := fetchHTML(url, config)
 	if err != nil {
 		return nil, err

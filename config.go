@@ -201,5 +201,92 @@ func (c *Config) Validate() error {
 		}
 	}
 
+	// Validate pagination config if present
+	if c.Pagination != nil {
+		if err := validatePaginationConfig(c.Pagination); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// validatePaginationConfig validates pagination configuration
+func validatePaginationConfig(p *PaginationConfig) error {
+	// Validate type
+	if p.Type != "next-link" && p.Type != "numbered" {
+		return &ScrapeError{
+			Type:    ErrTypeConfig,
+			Message: fmt.Sprintf("invalid pagination type: %s (must be 'next-link' or 'numbered')", p.Type),
+		}
+	}
+
+	// Validate next-link selectors
+	if p.Type == "next-link" {
+		if p.NextSelector == "" {
+			return &ScrapeError{
+				Type:    ErrTypeConfig,
+				Message: "nextSelector is required for next-link pagination",
+			}
+		}
+
+		// Validate nextSelector XPath syntax
+		if _, err := xpath.Compile(p.NextSelector); err != nil {
+			return &ScrapeError{
+				Type:    ErrTypeXPath,
+				Message: "invalid nextSelector xpath syntax",
+				XPath:   p.NextSelector,
+				Cause:   err,
+			}
+		}
+
+		// Validate altSelectors
+		for i, altSelector := range p.AltSelectors {
+			if _, err := xpath.Compile(altSelector); err != nil {
+				return &ScrapeError{
+					Type:    ErrTypeXPath,
+					Message: fmt.Sprintf("invalid altSelectors[%d] xpath syntax", i),
+					XPath:   altSelector,
+					Cause:   err,
+				}
+			}
+		}
+	}
+
+	// Validate numbered selectors
+	if p.Type == "numbered" {
+		if p.PageSelector == "" {
+			return &ScrapeError{
+				Type:    ErrTypeConfig,
+				Message: "pageSelector is required for numbered pagination",
+			}
+		}
+
+		// Validate pageSelector XPath syntax
+		if _, err := xpath.Compile(p.PageSelector); err != nil {
+			return &ScrapeError{
+				Type:    ErrTypeXPath,
+				Message: "invalid pageSelector xpath syntax",
+				XPath:   p.PageSelector,
+				Cause:   err,
+			}
+		}
+	}
+
+	// Validate limits
+	if p.MaxPages < 0 {
+		return &ScrapeError{
+			Type:    ErrTypeConfig,
+			Message: "maxPages must be non-negative",
+		}
+	}
+
+	if p.Timeout < 0 {
+		return &ScrapeError{
+			Type:    ErrTypeConfig,
+			Message: "pagination timeout must be non-negative",
+		}
+	}
+
 	return nil
 }

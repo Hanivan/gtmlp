@@ -1,0 +1,19 @@
+# Numbered pagination configuration
+
+container: //div[@class='product']
+
+fields:
+  name:
+    xpath: .//h2/text()
+    pipes: [trim]
+
+  price:
+    xpath: .//span[@class='price']/text()
+    pipes: [trim, tofloat]
+
+pagination:
+  type: numbered
+  pageSelector: //div[@class='pagination']//a[not(contains(@class, 'active'))]/@href
+  pipes: [trim]
+  maxPages: 20
+  enableLogging: true

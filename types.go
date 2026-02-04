@@ -2,6 +2,7 @@ package gtmlp
 
 import (
 	"context"
+	"fmt"
 	"time"
 )
 
@@ -37,6 +38,9 @@ type Config struct {
 	AltContainer []string               // Alternative container selectors
 	Fields       map[string]FieldConfig // Field name → FieldConfig
 
+	// Pagination
+	Pagination *PaginationConfig // Optional pagination configuration
+
 	// HTTP options
 	Timeout    time.Duration
 	UserAgent  string
@@ -54,6 +58,54 @@ type PartialResult[T any] struct {
 
 // PipeFunc defines a pipe transformation function
 type PipeFunc func(ctx context.Context, input string, params []string) (any, error)
+
+// PaginationConfig defines pagination behavior
+type PaginationConfig struct {
+	Type          string        // "next-link" or "numbered"
+	NextSelector  string        // XPath for next link (next-link type)
+	AltSelectors  []string      // Fallback selectors for next link
+	PageSelector  string        // XPath for all page links (numbered type)
+	Pipes         []string      // URL transformation pipes
+	MaxPages      int           // Maximum pages to scrape (default: 100)
+	Timeout       time.Duration // Total pagination timeout (default: 10m)
+	EnableLogging bool          // Enable progress logging (default: false)
+}
+
+// PaginatedResults contains page-separated scraping results
+type PaginatedResults[T any] struct {
+	Pages      []PageResult[T]
+	TotalPages int
+	TotalItems int
+}
+
+// PageResult contains results from a single page
+type PageResult[T any] struct {
+	URL       string
+	PageNum   int
+	Items     []T
+	ScrapedAt time.Time
+}
+
+// PaginationInfo contains extracted pagination URLs
+type PaginationInfo struct {
+	URLs    []string // All discovered page URLs
+	Type    string   // "next-link" or "numbered"
+	BaseURL string   // Original base URL
+}
+
+// PaginationError represents an error during pagination
+type PaginationError struct {
+	PageURL      string // URL that failed
+	PageNumber   int    // Page number (1-indexed)
+	PartialData  any    // Items scraped before failure
+	TotalScraped int    // Total items before failure
+	Cause        error  // Underlying error
+}
+
+func (e *PaginationError) Error() string {
+	return fmt.Sprintf("pagination failed at page %d (%s): %v",
+		e.PageNumber, e.PageURL, e.Cause)
+}
 
 // WithURL adds the base URL to context for parseUrl pipe
 func WithURL(ctx context.Context, url string) context.Context {

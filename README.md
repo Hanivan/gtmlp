@@ -7,6 +7,7 @@ Type-safe HTML scraping with XPath selectors and external configuration.
 - **Type-safe** with Go generics
 - **External config** (JSON/YAML)
 - **XPath validation** before scraping
+- **Pagination support** - Auto-follow next-link or numbered pagination
 - **Fallback XPath chains** (`altXpath`, `altContainer`) for handling varying HTML structures
 - **Data transformation pipes** (trim, int/float conversion, regex, URL parsing, etc.)
 - **Custom pipe registration** for domain-specific transformations
@@ -108,6 +109,50 @@ Handle varying HTML structures with `altXpath` and `altContainer`:
 - Returns first non-empty result
 - Container fallback works the same way with `altContainer`
 
+## Pagination
+
+Auto-follow pagination or extract URLs for manual control:
+
+**Next-Link Pagination** (follow "Next" buttons):
+```json
+{
+  "container": "//div[@class='product']",
+  "fields": {
+    "name": {"xpath": ".//h2/text()"}
+  },
+  "pagination": {
+    "type": "next-link",
+    "nextSelector": "//a[@rel='next']/@href",
+    "altSelectors": ["//a[contains(text(), 'Next')]/@href"],
+    "maxPages": 50,
+    "enableLogging": true
+  }
+}
+```
+
+**Numbered Pagination** (extract all page links):
+```json
+{
+  "pagination": {
+    "type": "numbered",
+    "pageSelector": "//div[@class='pagination']//a/@href",
+    "maxPages": 20
+  }
+}
+```
+
+**Usage:**
+```go
+// Auto-follow: returns combined results from all pages
+products, _ := gtmlp.ScrapeURL[Product](ctx, url, config)
+
+// Page-separated: get results per page with metadata
+results, _ := gtmlp.ScrapeURLWithPages[Product](ctx, url, config)
+
+// Extract-only: get URLs for manual control
+info, _ := gtmlp.ExtractPaginationURLs(ctx, url, config)
+```
+
 ## Data Transformation Pipes
 
 Transform extracted data using pipes:
@@ -144,7 +189,10 @@ See **[docs/API_V2.md](docs/API_V2.md)** for complete pipe documentation.
 ## Documentation & Examples
 
 - **[API_V2.md](docs/API_V2.md)** - Complete API reference
-- **[examples/v2/](examples/v2/)** - 8 working examples (JSON/YAML, embed, tables, ecommerce)
+- **[examples/v2/](examples/v2/)** - 10 working examples:
+  - Basic scraping (JSON/YAML, embed)
+  - E-commerce and tables
+  - **Pagination** (next-link, numbered)
 
 ## License
 

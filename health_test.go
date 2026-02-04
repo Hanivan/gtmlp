@@ -308,6 +308,7 @@ func TestCheckHealthWithOptions_CustomUserAgent(t *testing.T) {
 	customUA := "TestAgent/1.0"
 	config := &Config{
 		Timeout:   5 * time.Second,
+		AllowPrivateIPs: true, // Allow localhost for testing
 		UserAgent: customUA,
 	}
 
@@ -329,6 +330,7 @@ func TestCheckHealthWithOptions_Proxy(t *testing.T) {
 
 	config := &Config{
 		Timeout: 5 * time.Second,
+		AllowPrivateIPs: true, // Allow localhost for testing
 		Proxy:   "http://proxy.example.com:8080",
 	}
 

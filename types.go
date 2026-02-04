@@ -41,6 +41,10 @@ type Config struct {
 	// Pagination
 	Pagination *PaginationConfig // Optional pagination configuration
 
+	// Security options
+	URLValidator    func(string) error // Optional custom URL validation function
+	AllowPrivateIPs bool               // Allow scraping private/internal IPs (default: false)
+
 	// HTTP options
 	Timeout    time.Duration
 	UserAgent  string
@@ -61,14 +65,13 @@ type PipeFunc func(ctx context.Context, input string, params []string) (any, err
 
 // PaginationConfig defines pagination behavior
 type PaginationConfig struct {
-	Type          string        // "next-link" or "numbered"
-	NextSelector  string        // XPath for next link (next-link type)
-	AltSelectors  []string      // Fallback selectors for next link
-	PageSelector  string        // XPath for all page links (numbered type)
-	Pipes         []string      // URL transformation pipes
-	MaxPages      int           // Maximum pages to scrape (default: 100)
-	Timeout       time.Duration // Total pagination timeout (default: 10m)
-	EnableLogging bool          // Enable progress logging (default: false)
+	Type         string        // "next-link" or "numbered"
+	NextSelector string        // XPath for next link (next-link type)
+	AltSelectors []string      // Fallback selectors for next link
+	PageSelector string        // XPath for all page links (numbered type)
+	Pipes        []string      // URL transformation pipes
+	MaxPages     int           // Maximum pages to scrape (default: 100)
+	Timeout      time.Duration // Total pagination timeout (default: 10m)
 }
 
 // PaginatedResults contains page-separated scraping results

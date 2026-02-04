@@ -78,6 +78,7 @@ func TestScrapeURL_NextLinkPagination(t *testing.T) {
 			MaxPages:     10,
 		},
 		Timeout: 30 * time.Second,
+		AllowPrivateIPs: true, // Allow localhost for testing
 	}
 
 	type Product struct {
@@ -129,6 +130,7 @@ func TestScrapeURLWithPages(t *testing.T) {
 			NextSelector: `//a[@rel="next"]/@href`,
 		},
 		Timeout: 30 * time.Second,
+		AllowPrivateIPs: true, // Allow localhost for testing
 	}
 
 	type Product struct {
@@ -191,6 +193,7 @@ func TestExtractPaginationURLs_NextLink(t *testing.T) {
 			MaxPages:     10,
 		},
 		Timeout: 30 * time.Second,
+		AllowPrivateIPs: true, // Allow localhost for testing
 	}
 
 	info, err := ExtractPaginationURLs(context.Background(), server.URL+"/products", config)
@@ -226,6 +229,7 @@ func TestExtractPaginationURLs_Numbered(t *testing.T) {
 			PageSelector: `//div[@class="pagination"]//a/@href`,
 		},
 		Timeout: 30 * time.Second,
+		AllowPrivateIPs: true, // Allow localhost for testing
 	}
 
 	info, err := ExtractPaginationURLs(context.Background(), server.URL+"/products", config)
@@ -266,6 +270,7 @@ func TestPagination_AltSelectors(t *testing.T) {
 			AltSelectors: []string{`//a[@class="next-page"]/@href`}, // Will match
 		},
 		Timeout: 30 * time.Second,
+		AllowPrivateIPs: true, // Allow localhost for testing
 	}
 
 	type Product struct {
@@ -297,11 +302,11 @@ func TestPagination_CircularReference(t *testing.T) {
 			"name": {XPath: `.//h2/text()`},
 		},
 		Pagination: &PaginationConfig{
-			Type:          "next-link",
-			NextSelector:  `//a[@rel="next"]/@href`,
-			EnableLogging: false,
+			Type:         "next-link",
+			NextSelector: `//a[@rel="next"]/@href`,
 		},
 		Timeout: 30 * time.Second,
+		AllowPrivateIPs: true, // Allow localhost for testing
 	}
 
 	type Product struct {
@@ -339,6 +344,7 @@ func TestPagination_MaxPages(t *testing.T) {
 			MaxPages:     2, // Limit to 2 pages
 		},
 		Timeout: 30 * time.Second,
+		AllowPrivateIPs: true, // Allow localhost for testing
 	}
 
 	type Product struct {
@@ -378,6 +384,7 @@ func TestPagination_RelativeURL(t *testing.T) {
 			NextSelector: `//a[@rel="next"]/@href`,
 		},
 		Timeout: 30 * time.Second,
+		AllowPrivateIPs: true, // Allow localhost for testing
 	}
 
 	type Product struct {
@@ -411,6 +418,7 @@ func TestPagination_NoConfig(t *testing.T) {
 		},
 		// No Pagination field
 		Timeout: 30 * time.Second,
+		AllowPrivateIPs: true, // Allow localhost for testing
 	}
 
 	type Product struct {
@@ -450,6 +458,7 @@ func TestPagination_PageFails(t *testing.T) {
 			NextSelector: `//a[@rel="next"]/@href`,
 		},
 		Timeout: 30 * time.Second,
+		AllowPrivateIPs: true, // Allow localhost for testing
 	}
 
 	type Product struct {
@@ -538,6 +547,7 @@ func TestValidatePaginationConfig(t *testing.T) {
 					NextSelector: "//a[@rel='next']/@href",
 				},
 				Timeout: 30 * time.Second,
+		AllowPrivateIPs: true, // Allow localhost for testing
 			},
 			wantErr: false,
 		},
@@ -551,6 +561,7 @@ func TestValidatePaginationConfig(t *testing.T) {
 					PageSelector: "//a/@href",
 				},
 				Timeout: 30 * time.Second,
+		AllowPrivateIPs: true, // Allow localhost for testing
 			},
 			wantErr: false,
 		},
@@ -563,6 +574,7 @@ func TestValidatePaginationConfig(t *testing.T) {
 					Type: "invalid",
 				},
 				Timeout: 30 * time.Second,
+		AllowPrivateIPs: true, // Allow localhost for testing
 			},
 			wantErr: true,
 		},
@@ -575,6 +587,7 @@ func TestValidatePaginationConfig(t *testing.T) {
 					Type: "next-link",
 				},
 				Timeout: 30 * time.Second,
+		AllowPrivateIPs: true, // Allow localhost for testing
 			},
 			wantErr: true,
 		},
@@ -587,6 +600,7 @@ func TestValidatePaginationConfig(t *testing.T) {
 					Type: "numbered",
 				},
 				Timeout: 30 * time.Second,
+		AllowPrivateIPs: true, // Allow localhost for testing
 			},
 			wantErr: true,
 		},

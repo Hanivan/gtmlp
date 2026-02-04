@@ -189,6 +189,7 @@ func TestValidateXPathURL(t *testing.T) {
 
 	config := &Config{
 		Timeout:   10 * time.Second,
+		AllowPrivateIPs: true, // Allow localhost for testing
 		UserAgent: "GTMLP/2.0",
 		Container: "//div[@class='product']",
 		Fields: map[string]FieldConfig{

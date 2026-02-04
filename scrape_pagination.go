@@ -101,25 +101,35 @@ func scrapeWithPagination[T any](ctx context.Context, startURL string, config *C
 	currentURL := startURL
 	startTime := time.Now()
 
-	logPagination(config.Pagination, "Starting from %s", startURL)
+	getLogger().Info("pagination starting",
+		"url", startURL,
+		"type", config.Pagination.Type,
+		"max_pages", config.Pagination.MaxPages)
 
 	for {
 		// Check timeout
 		if time.Since(startTime) > config.Pagination.Timeout {
-			logPagination(config.Pagination, "Warning: Timeout (%v) exceeded, stopping pagination", config.Pagination.Timeout)
+			getLogger().Warn("pagination timeout exceeded",
+				"timeout", config.Pagination.Timeout,
+				"elapsed", time.Since(startTime),
+				"pages_scraped", pageNum-1)
 			break
 		}
 
 		// Check max pages
 		if pageNum > config.Pagination.MaxPages {
-			logPagination(config.Pagination, "Warning: Max pages (%d) reached, stopping pagination", config.Pagination.MaxPages)
+			getLogger().Warn("pagination max pages reached",
+				"max_pages", config.Pagination.MaxPages,
+				"total_items", len(allItems))
 			break
 		}
 
 		// Mark URL as visited
 		normalized := normalizeURL(currentURL)
 		if visitedURLs[normalized] {
-			logPagination(config.Pagination, "Warning: Duplicate URL detected (skipping): %s", currentURL)
+			getLogger().Warn("pagination duplicate url",
+				"url", currentURL,
+				"page", pageNum)
 			break
 		}
 		visitedURLs[normalized] = true
@@ -139,8 +149,11 @@ func scrapeWithPagination[T any](ctx context.Context, startURL string, config *C
 		}
 
 		// Log progress
-		logPagination(config.Pagination, "Page %d/%s - scraped %d items (%d total)",
-			pageNum, "?", len(items), len(allItems)+len(items))
+		getLogger().Info("pagination page scraped",
+			"page", pageNum,
+			"items", len(items),
+			"total_items", len(allItems)+len(items),
+			"url", currentURL)
 
 		// Store results
 		pageResult := PageResult[T]{
@@ -166,16 +179,23 @@ func scrapeWithPagination[T any](ctx context.Context, startURL string, config *C
 
 		if nextURL == "" {
 			// No more pages
-			logPagination(config.Pagination, "No next link found - pagination complete")
+			getLogger().Info("pagination complete",
+				"reason", "no_next_link",
+				"pages", len(allPages))
 			break
 		}
 
-		logPagination(config.Pagination, "Following next link: %s", nextURL)
+		getLogger().Info("pagination following next link",
+			"url", nextURL,
+			"page", pageNum+1)
 		currentURL = nextURL
 		pageNum++
 	}
 
-	logPagination(config.Pagination, "Complete - %d pages, %d total items", len(allPages), len(allItems))
+	getLogger().Info("pagination complete",
+		"pages", len(allPages),
+		"total_items", len(allItems),
+		"duration", time.Since(startTime).String())
 
 	return &PaginatedResults[T]{
 		Pages:      allPages,
@@ -485,13 +505,5 @@ func applyPaginationDefaults(config *PaginationConfig) {
 	}
 }
 
-// logPagination logs pagination progress with timestamp if logging is enabled
-func logPagination(config *PaginationConfig, format string, args ...interface{}) {
-	if !config.EnableLogging {
-		return
-	}
-
-	timestamp := time.Now().Format("2006-01-02 15:04:05")
-	message := fmt.Sprintf(format, args...)
-	fmt.Printf("[%s] [GTMLP] Pagination: %s\n", timestamp, message)
-}
+// logPagination is deprecated and removed
+// Use gtmlp.SetLogLevel(slog.LevelInfo) to see pagination logs

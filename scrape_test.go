@@ -45,6 +45,7 @@ func TestScrapeTyped_Success(t *testing.T) {
 			"price": {XPath: `.//span[@class="price"]/text()`},
 		},
 		Timeout: 30 * time.Second,
+		AllowPrivateIPs: true, // Allow localhost for testing
 	}
 
 	results, err := Scrape[Product](context.Background(), testHTML, config)
@@ -82,6 +83,7 @@ func TestScrapeTyped_EmptyResults(t *testing.T) {
 			"name": {XPath: `.//h2/text()`},
 		},
 		Timeout: 30 * time.Second,
+		AllowPrivateIPs: true, // Allow localhost for testing
 	}
 
 	results, err := Scrape[Product](context.Background(), testHTMLEmpty, config)
@@ -110,6 +112,7 @@ func TestScrapeTyped_InvalidConfig(t *testing.T) {
 					"name": {XPath: `.//h2/text()`},
 				},
 				Timeout: 30 * time.Second,
+		AllowPrivateIPs: true, // Allow localhost for testing
 			},
 			wantErr: "config error: container xpath is required",
 		},
@@ -119,6 +122,7 @@ func TestScrapeTyped_InvalidConfig(t *testing.T) {
 				Container: `//div[@class="product"]`,
 				Fields:    map[string]FieldConfig{},
 				Timeout:   30 * time.Second,
+		AllowPrivateIPs: true, // Allow localhost for testing
 			},
 			wantErr: "config error: at least one field is required",
 		},
@@ -128,6 +132,7 @@ func TestScrapeTyped_InvalidConfig(t *testing.T) {
 				Container: `//div[@class="product"]`,
 				Fields:    nil,
 				Timeout:   30 * time.Second,
+		AllowPrivateIPs: true, // Allow localhost for testing
 			},
 			wantErr: "config error: at least one field is required",
 		},
@@ -160,6 +165,7 @@ func TestScrapeTyped_EmptyHTML(t *testing.T) {
 			"name": {XPath: `.//h2/text()`},
 		},
 		Timeout: 30 * time.Second,
+		AllowPrivateIPs: true, // Allow localhost for testing
 	}
 
 	results, err := Scrape[Product](context.Background(), "", config)
@@ -183,6 +189,7 @@ func TestScrapeUntyped_Success(t *testing.T) {
 			"price": {XPath: `.//span[@class="price"]/text()`},
 		},
 		Timeout: 30 * time.Second,
+		AllowPrivateIPs: true, // Allow localhost for testing
 	}
 
 	results, err := ScrapeUntyped(context.Background(), testHTML, config)
@@ -220,6 +227,7 @@ func TestScrapeUntyped_EmptyResults(t *testing.T) {
 			"name": {XPath: `.//h2/text()`},
 		},
 		Timeout: 30 * time.Second,
+		AllowPrivateIPs: true, // Allow localhost for testing
 	}
 
 	results, err := ScrapeUntyped(context.Background(), testHTMLEmpty, config)
@@ -241,6 +249,7 @@ func TestScrapeUntyped_InvalidConfig(t *testing.T) {
 			"name": {XPath: `.//h2/text()`},
 		},
 		Timeout: 30 * time.Second,
+		AllowPrivateIPs: true, // Allow localhost for testing
 	}
 
 	results, err := ScrapeUntyped(context.Background(), testHTML, config)
@@ -262,6 +271,7 @@ func TestScrapeUntyped_EmptyHTML(t *testing.T) {
 			"name": {XPath: `.//h2/text()`},
 		},
 		Timeout: 30 * time.Second,
+		AllowPrivateIPs: true, // Allow localhost for testing
 	}
 
 	results, err := ScrapeUntyped(context.Background(), "", config)
@@ -286,6 +296,7 @@ func TestExtractValue_Text(t *testing.T) {
 			"name": {XPath: `.//h2/text()`},
 		},
 		Timeout: 30 * time.Second,
+		AllowPrivateIPs: true, // Allow localhost for testing
 	}
 
 	results, err := ScrapeUntyped(context.Background(), testHTML, config)
@@ -314,6 +325,7 @@ func TestMapToStruct(t *testing.T) {
 			"price": {XPath: `.//span[@class="price"]/text()`},
 		},
 		Timeout: 30 * time.Second,
+		AllowPrivateIPs: true, // Allow localhost for testing
 	}
 
 	results, err := Scrape[Product](context.Background(), testHTML, config)
@@ -344,6 +356,7 @@ func TestScrape_WithAttributes(t *testing.T) {
 			"link":  {XPath: `.//a/@href`},
 		},
 		Timeout: 30 * time.Second,
+		AllowPrivateIPs: true, // Allow localhost for testing
 	}
 
 	results, err := Scrape[ProductWithAttr](context.Background(), testHTML, config)
@@ -383,6 +396,7 @@ func TestScrape_MissingFields(t *testing.T) {
 			"missing": {XPath: `.//span[@class="missing"]/text()`},
 		},
 		Timeout: 30 * time.Second,
+		AllowPrivateIPs: true, // Allow localhost for testing
 	}
 
 	results, err := ScrapeUntyped(context.Background(), testHTML, config)
@@ -418,6 +432,7 @@ func TestScrapeURL_Success(t *testing.T) {
 			"price": {XPath: `.//span[@class="price"]/text()`},
 		},
 		Timeout: 30 * time.Second,
+		AllowPrivateIPs: true, // Allow localhost for testing
 	}
 
 	results, err := ScrapeURL[Product](context.Background(), server.URL, config)
@@ -462,6 +477,7 @@ func TestScrapeURL_EmptyResults(t *testing.T) {
 			"name": {XPath: `.//h2/text()`},
 		},
 		Timeout: 30 * time.Second,
+		AllowPrivateIPs: true, // Allow localhost for testing
 	}
 
 	results, err := ScrapeURL[Product](context.Background(), server.URL, config)
@@ -490,6 +506,7 @@ func TestScrapeURL_InvalidConfig(t *testing.T) {
 			"name": {XPath: `.//h2/text()`},
 		},
 		Timeout: 30 * time.Second,
+		AllowPrivateIPs: true, // Allow localhost for testing
 	}
 
 	results, err := ScrapeURL[Product](context.Background(), server.URL, config)
@@ -511,6 +528,7 @@ func TestScrapeURL_InvalidURL(t *testing.T) {
 			"name": {XPath: `.//h2/text()`},
 		},
 		Timeout: 30 * time.Second,
+		AllowPrivateIPs: true, // Allow localhost for testing
 	}
 
 	results, err := ScrapeURL[Product](context.Background(), "invalid-url", config)
@@ -537,6 +555,7 @@ func TestScrapeURL_HTTPError(t *testing.T) {
 			"name": {XPath: `.//h2/text()`},
 		},
 		Timeout: 30 * time.Second,
+		AllowPrivateIPs: true, // Allow localhost for testing
 	}
 
 	results, err := ScrapeURL[Product](context.Background(), server.URL, config)
@@ -567,6 +586,7 @@ func TestScrapeURL_WithAttributes(t *testing.T) {
 			"link":  {XPath: `.//a/@href`},
 		},
 		Timeout: 30 * time.Second,
+		AllowPrivateIPs: true, // Allow localhost for testing
 	}
 
 	results, err := ScrapeURL[ProductWithAttr](context.Background(), server.URL, config)
@@ -604,6 +624,7 @@ func TestScrapeURLUntyped_Success(t *testing.T) {
 			"price": {XPath: `.//span[@class="price"]/text()`},
 		},
 		Timeout: 30 * time.Second,
+		AllowPrivateIPs: true, // Allow localhost for testing
 	}
 
 	results, err := ScrapeURLUntyped(context.Background(), server.URL, config)
@@ -648,6 +669,7 @@ func TestScrapeURLUntyped_EmptyResults(t *testing.T) {
 			"name": {XPath: `.//h2/text()`},
 		},
 		Timeout: 30 * time.Second,
+		AllowPrivateIPs: true, // Allow localhost for testing
 	}
 
 	results, err := ScrapeURLUntyped(context.Background(), server.URL, config)
@@ -676,6 +698,7 @@ func TestScrapeURLUntyped_InvalidConfig(t *testing.T) {
 			"name": {XPath: `.//h2/text()`},
 		},
 		Timeout: 30 * time.Second,
+		AllowPrivateIPs: true, // Allow localhost for testing
 	}
 
 	results, err := ScrapeURLUntyped(context.Background(), server.URL, config)
@@ -697,6 +720,7 @@ func TestScrapeURLUntyped_InvalidURL(t *testing.T) {
 			"name": {XPath: `.//h2/text()`},
 		},
 		Timeout: 30 * time.Second,
+		AllowPrivateIPs: true, // Allow localhost for testing
 	}
 
 	results, err := ScrapeURLUntyped(context.Background(), "invalid-url", config)
@@ -723,6 +747,7 @@ func TestScrapeURLUntyped_HTTPError(t *testing.T) {
 			"name": {XPath: `.//h2/text()`},
 		},
 		Timeout: 30 * time.Second,
+		AllowPrivateIPs: true, // Allow localhost for testing
 	}
 
 	results, err := ScrapeURLUntyped(context.Background(), server.URL, config)
@@ -769,6 +794,7 @@ func TestAltContainer_Fallback(t *testing.T) {
 			"name": {XPath: `.//h2/text()`},
 		},
 		Timeout: 30 * time.Second,
+		AllowPrivateIPs: true, // Allow localhost for testing
 	}
 
 	results, err := ScrapeUntyped(context.Background(), testHTMLAltStructure, config)
@@ -795,6 +821,7 @@ func TestAltContainer_AllFail(t *testing.T) {
 			"name": {XPath: `.//h2/text()`},
 		},
 		Timeout: 30 * time.Second,
+		AllowPrivateIPs: true, // Allow localhost for testing
 	}
 
 	results, err := ScrapeUntyped(context.Background(), testHTMLAltStructure, config)
@@ -819,6 +846,7 @@ func TestAltXPath_Fallback(t *testing.T) {
 			},
 		},
 		Timeout: 30 * time.Second,
+		AllowPrivateIPs: true, // Allow localhost for testing
 	}
 
 	results, err := ScrapeUntyped(context.Background(), testHTMLAltStructure, config)
@@ -849,6 +877,7 @@ func TestAltXPath_WithPipes(t *testing.T) {
 			},
 		},
 		Timeout: 30 * time.Second,
+		AllowPrivateIPs: true, // Allow localhost for testing
 	}
 
 	results, err := ScrapeUntyped(context.Background(), testHTMLWhitespace, config)
@@ -879,6 +908,7 @@ func TestAltXPath_AllFail(t *testing.T) {
 			"price": {XPath: `.//span[@class="price"]/text()`},
 		},
 		Timeout: 30 * time.Second,
+		AllowPrivateIPs: true, // Allow localhost for testing
 	}
 
 	results, err := ScrapeUntyped(context.Background(), testHTML, config)
@@ -913,6 +943,7 @@ func TestAltXPath_MultipleAlternatives(t *testing.T) {
 			},
 		},
 		Timeout: 30 * time.Second,
+		AllowPrivateIPs: true, // Allow localhost for testing
 	}
 
 	results, err := ScrapeUntyped(context.Background(), testHTMLAltStructure, config)
@@ -941,6 +972,7 @@ func TestAltXPath_BackwardCompat(t *testing.T) {
 			"price": {XPath: `.//span[@class="price"]/text()`},
 		},
 		Timeout: 30 * time.Second,
+		AllowPrivateIPs: true, // Allow localhost for testing
 	}
 
 	results, err := Scrape[Product](context.Background(), testHTML, config)
@@ -973,6 +1005,7 @@ func TestAltXPath_EmptyArrays(t *testing.T) {
 			},
 		},
 		Timeout: 30 * time.Second,
+		AllowPrivateIPs: true, // Allow localhost for testing
 	}
 
 	results, err := ScrapeUntyped(context.Background(), testHTML, config)

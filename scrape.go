@@ -15,14 +15,23 @@ import (
 // It finds all container nodes and extracts fields from each one.
 // Returns an empty slice if no containers are found.
 func Scrape[T any](ctx context.Context, html string, config *Config) ([]T, error) {
+	getLogger().Debug("scraping started",
+		"container", config.Container,
+		"fields", len(config.Fields),
+		"html_size", len(html))
+
 	// Validate config
 	if err := config.Validate(); err != nil {
+		getLogger().Error("config validation failed",
+			"error", err.Error())
 		return nil, err
 	}
 
 	// Parse HTML
 	doc, err := htmlquery.Parse(strings.NewReader(html))
 	if err != nil {
+		getLogger().Error("html parsing failed",
+			"error", err.Error())
 		return nil, &ScrapeError{
 			Type:    ErrTypeParsing,
 			Message: "failed to parse HTML",
@@ -68,6 +77,10 @@ func Scrape[T any](ctx context.Context, html string, config *Config) ([]T, error
 	if results == nil {
 		results = []T{}
 	}
+
+	getLogger().Info("scraping completed",
+		"items", len(results),
+		"container", config.Container)
 
 	return results, nil
 }
@@ -129,11 +142,18 @@ func findContainers(doc *html.Node, container string, altContainers []string) (*
 	containers := []string{container}
 	containers = append(containers, altContainers...)
 
+	getLogger().Debug("finding containers",
+		"primary", container,
+		"alternatives", len(altContainers))
+
 	// Try each container XPath in sequence
-	for _, containerXPath := range containers {
+	for i, containerXPath := range containers {
 		// Compile container XPath
 		containerExpr, err := xpath.Compile(containerXPath)
 		if err != nil {
+			getLogger().Error("container xpath compilation failed",
+				"xpath", containerXPath,
+				"error", err.Error())
 			return nil, &ScrapeError{
 				Type:    ErrTypeXPath,
 				Message: "invalid container XPath",
@@ -148,9 +168,19 @@ func findContainers(doc *html.Node, container string, altContainers []string) (*
 		// Check if we found any containers
 		if containerNodes.MoveNext() {
 			// Found at least one container, re-evaluate to get a fresh iterator
+			if i > 0 {
+				getLogger().Warn("container fallback used",
+					"primary", container,
+					"used", containerXPath,
+					"fallback_index", i)
+			}
+			getLogger().Debug("containers found",
+				"xpath", containerXPath)
 			return containerExpr.Evaluate(htmlquery.CreateXPathNavigator(doc)).(*xpath.NodeIterator), nil
 		}
 
+		getLogger().Debug("container xpath returned empty",
+			"xpath", containerXPath)
 		// No containers found, try next XPath
 	}
 
@@ -214,7 +244,7 @@ func extractFieldWithPipes(ctx context.Context, containerNode *html.Node, fieldC
 	xpaths = append(xpaths, fieldConfig.AltXPath...)
 
 	// Try each XPath in sequence
-	for _, xpath := range xpaths {
+	for xpathIdx, xpath := range xpaths {
 		// Extract raw value with XPath
 		rawValue := extractField(containerNode, xpath)
 
@@ -255,13 +285,24 @@ func extractFieldWithPipes(ctx context.Context, containerNode *html.Node, fieldC
 
 		// Check if result is non-empty after pipes
 		if !isEmpty(value) {
+			if len(xpaths) > 1 && xpathIdx > 0 {
+				getLogger().Warn("field fallback used",
+					"primary", fieldConfig.XPath,
+					"used", xpath,
+					"fallback_index", xpathIdx)
+			}
 			return value, nil
 		}
 
+		getLogger().Debug("field xpath returned empty after pipes",
+			"xpath", xpath)
 		// Result is empty, try next XPath
 	}
 
 	// All XPaths failed, return empty string
+	getLogger().Warn("all xpaths failed for field",
+		"primary", fieldConfig.XPath,
+		"alternatives", len(fieldConfig.AltXPath))
 	return "", nil
 }
 

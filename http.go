@@ -11,8 +11,12 @@ import (
 
 // fetch fetches a URL and returns the HTTP response
 func fetch(url string, config *Config) (*http.Response, error) {
+	startTime := time.Now()
+
 	// Validate URL
 	if url == "" {
+		getLogger().Error("empty url",
+			"error", "URL cannot be empty")
 		return nil, &ScrapeError{
 			Type:    ErrTypeNetwork,
 			Message: "URL cannot be empty",
@@ -22,6 +26,9 @@ func fetch(url string, config *Config) (*http.Response, error) {
 	// Parse and validate URL
 	parsedURL, err := neturl.Parse(url)
 	if err != nil {
+		getLogger().Error("invalid url format",
+			"url", url,
+			"error", err.Error())
 		return nil, &ScrapeError{
 			Type:    ErrTypeNetwork,
 			Message: "invalid URL format",
@@ -31,12 +38,33 @@ func fetch(url string, config *Config) (*http.Response, error) {
 	}
 
 	if parsedURL.Scheme != "http" && parsedURL.Scheme != "https" {
+		getLogger().Error("invalid url scheme",
+			"url", url,
+			"scheme", parsedURL.Scheme)
 		return nil, &ScrapeError{
 			Type:    ErrTypeNetwork,
 			Message: "URL scheme must be http or https",
 			URL:     url,
 		}
 	}
+
+	// SSRF protection and security validation
+	if err := validateURL(url, config); err != nil {
+		getLogger().Error("url validation failed",
+			"url", url,
+			"error", err.Error())
+		return nil, &ScrapeError{
+			Type:    ErrTypeNetwork,
+			Message: "URL validation failed",
+			URL:     url,
+			Cause:   err,
+		}
+	}
+
+	getLogger().Debug("http request starting",
+		"url", url,
+		"timeout", config.Timeout,
+		"max_retries", config.MaxRetries)
 
 	// Create HTTP client with configured timeout
 	client := &http.Client{
@@ -99,6 +127,11 @@ func fetch(url string, config *Config) (*http.Response, error) {
 		// Execute request
 		resp, err := client.Do(req)
 		if err != nil {
+			getLogger().Warn("http request failed",
+				"url", url,
+				"attempt", attempt+1,
+				"max_attempts", maxAttempts,
+				"error", err.Error())
 			lastErr = &ScrapeError{
 				Type:    ErrTypeNetwork,
 				Message: "HTTP request failed",
@@ -111,6 +144,11 @@ func fetch(url string, config *Config) (*http.Response, error) {
 		// Check status code
 		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 			resp.Body.Close()
+			getLogger().Warn("http bad status code",
+				"url", url,
+				"status", resp.StatusCode,
+				"attempt", attempt+1,
+				"max_attempts", maxAttempts)
 			lastErr = &ScrapeError{
 				Type:    ErrTypeNetwork,
 				Message: fmt.Sprintf("HTTP request failed with status: %d %s", resp.StatusCode, resp.Status),
@@ -120,10 +158,20 @@ func fetch(url string, config *Config) (*http.Response, error) {
 		}
 
 		// Success
+		duration := time.Since(startTime)
+		getLogger().Info("http request successful",
+			"url", url,
+			"status", resp.StatusCode,
+			"duration_ms", duration.Milliseconds(),
+			"attempt", attempt+1)
 		return resp, nil
 	}
 
 	// All retries exhausted
+	getLogger().Error("http request failed after retries",
+		"url", url,
+		"attempts", maxAttempts,
+		"error", lastErr)
 	return nil, lastErr
 }
 

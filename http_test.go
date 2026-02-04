@@ -19,6 +19,7 @@ func TestFetchSuccess(t *testing.T) {
 
 	config := &Config{
 		Timeout:   10 * time.Second,
+		AllowPrivateIPs: true, // Allow localhost for testing
 		UserAgent: "GTMLP/2.0",
 	}
 
@@ -79,6 +80,7 @@ func TestFetchWithRetry(t *testing.T) {
 
 	config := &Config{
 		Timeout:    10 * time.Second,
+		AllowPrivateIPs: true, // Allow localhost for testing
 		UserAgent:  "GTMLP/2.0",
 		MaxRetries: 3,
 	}
@@ -110,6 +112,7 @@ func TestFetchWithProxy(t *testing.T) {
 
 	config := &Config{
 		Timeout:   10 * time.Second,
+		AllowPrivateIPs: true, // Allow localhost for testing
 		UserAgent: "GTMLP/2.0",
 		Proxy:     proxyServer.URL,
 	}
@@ -145,6 +148,7 @@ func TestFetchWithCustomHeaders(t *testing.T) {
 
 	config := &Config{
 		Timeout:   10 * time.Second,
+		AllowPrivateIPs: true, // Allow localhost for testing
 		UserAgent: "GTMLP/2.0",
 		Headers: map[string]string{
 			"X-Custom-Header": "TestValue",
@@ -185,6 +189,7 @@ func TestFetchInvalidHTTPStatus(t *testing.T) {
 
 			config := &Config{
 				Timeout:   10 * time.Second,
+		AllowPrivateIPs: true, // Allow localhost for testing
 				UserAgent: "GTMLP/2.0",
 			}
 
@@ -217,6 +222,7 @@ func TestFetchHTMLReturnsHTMLString(t *testing.T) {
 
 	config := &Config{
 		Timeout:   10 * time.Second,
+		AllowPrivateIPs: true, // Allow localhost for testing
 		UserAgent: "GTMLP/2.0",
 	}
 
@@ -248,6 +254,7 @@ func TestFetchHTMLWithRetry(t *testing.T) {
 
 	config := &Config{
 		Timeout:    10 * time.Second,
+		AllowPrivateIPs: true, // Allow localhost for testing
 		UserAgent:  "GTMLP/2.0",
 		MaxRetries: 3,
 	}
@@ -280,6 +287,7 @@ func TestFetchUserAgent(t *testing.T) {
 
 	config := &Config{
 		Timeout:   10 * time.Second,
+		AllowPrivateIPs: true, // Allow localhost for testing
 		UserAgent: customUA,
 	}
 
@@ -297,6 +305,7 @@ func TestFetchUserAgent(t *testing.T) {
 func TestFetchInvalidURL(t *testing.T) {
 	config := &Config{
 		Timeout:   10 * time.Second,
+		AllowPrivateIPs: true, // Allow localhost for testing
 		UserAgent: "GTMLP/2.0",
 	}
 
@@ -330,6 +339,7 @@ func TestFetchInvalidURL(t *testing.T) {
 func TestFetchEmptyURL(t *testing.T) {
 	config := &Config{
 		Timeout:   10 * time.Second,
+		AllowPrivateIPs: true, // Allow localhost for testing
 		UserAgent: "GTMLP/2.0",
 	}
 
@@ -385,6 +395,7 @@ func TestFetchExponentialBackoff(t *testing.T) {
 
 	config := &Config{
 		Timeout:    1 * time.Second,
+		AllowPrivateIPs: true, // Allow localhost for testing
 		UserAgent:  "GTMLP/2.0",
 		MaxRetries: 3,
 	}
@@ -425,6 +436,7 @@ func TestFetchWithAllOptions(t *testing.T) {
 
 	config := &Config{
 		Timeout:    10 * time.Second,
+		AllowPrivateIPs: true, // Allow localhost for testing
 		UserAgent:  "FullTest/1.0",
 		MaxRetries: 1,
 		Headers: map[string]string{
@@ -461,6 +473,7 @@ func TestFetchHTMLWithInvalidStatusCode(t *testing.T) {
 
 	config := &Config{
 		Timeout:   10 * time.Second,
+		AllowPrivateIPs: true, // Allow localhost for testing
 		UserAgent: "GTMLP/2.0",
 	}
 

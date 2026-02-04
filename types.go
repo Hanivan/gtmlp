@@ -25,15 +25,17 @@ var DefaultEnvMapping = &EnvMapping{
 
 // FieldConfig defines a single field's XPath and optional pipes
 type FieldConfig struct {
-	XPath string
-	Pipes []string
+	XPath    string
+	AltXPath []string
+	Pipes    []string
 }
 
 // Config holds scraping configuration
 type Config struct {
 	// XPath definitions
-	Container string                 // Repeating element selector
-	Fields    map[string]FieldConfig // Field name → FieldConfig
+	Container    string                 // Repeating element selector
+	AltContainer []string               // Alternative container selectors
+	Fields       map[string]FieldConfig // Field name → FieldConfig
 
 	// HTTP options
 	Timeout    time.Duration

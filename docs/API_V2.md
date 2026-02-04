@@ -7,6 +7,7 @@ Complete API reference for GTMLP v2.0 - the configuration-based, type-safe scrap
 - [Overview](#overview)
 - [Core Scraping Functions](#core-scraping-functions)
 - [Config Loading](#config-loading)
+- [Fallback XPath Chains](#fallback-xpath-chains)
 - [Data Transformation Pipes](#data-transformation-pipes)
 - [XPath Validation](#xpath-validation)
 - [Health Check](#health-check)
@@ -348,6 +349,163 @@ config := &gtmlp.Config{
 
 if err := config.Validate(); err != nil {
     log.Fatalf("Invalid config: %v", err)
+}
+```
+
+## Fallback XPath Chains
+
+GTMLP supports fallback XPath chains using `altXpath` and `altContainer` to handle varying HTML structures gracefully. This is useful when:
+
+- Different pages have different HTML structures
+- Elements can appear in multiple locations
+- Handling A/B tests or template variations
+- Dealing with legacy and modern page layouts
+
+### How It Works
+
+**Field-Level Fallback (`altXpath`):**
+1. Try the primary `xpath`
+2. Apply `pipes` to the result
+3. If result is empty after pipes, try each `altXpath` in order
+4. Return first non-empty result
+5. Return empty string if all fail
+
+**Container-Level Fallback (`altContainer`):**
+1. Try the primary `container` XPath
+2. If no elements found, try each `altContainer` in order
+3. Use first non-empty container list
+4. Return empty array if all fail
+
+### Configuration
+
+**JSON:**
+```json
+{
+  "container": "//div[@class='product']",
+  "altContainer": [
+    "//article[@class='product']",
+    "//div[@class='item']"
+  ],
+  "fields": {
+    "name": {
+      "xpath": ".//h2[@class='title']/text()",
+      "altXpath": [
+        ".//h3[@class='product-name']/text()",
+        ".//h1/text()"
+      ],
+      "pipes": ["trim"]
+    },
+    "price": {
+      "xpath": ".//span[@class='price']/text()",
+      "altXpath": [".//div[@class='price']/text()"],
+      "pipes": ["trim", "tofloat"]
+    }
+  }
+}
+```
+
+**YAML:**
+```yaml
+container: //div[@class='product']
+altContainer:
+  - //article[@class='product']
+  - //div[@class='item']
+
+fields:
+  name:
+    xpath: .//h2[@class='title']/text()
+    altXpath:
+      - .//h3[@class='product-name']/text()
+      - .//h1/text()
+    pipes: [trim]
+
+  price:
+    xpath: .//span[@class='price']/text()
+    altXpath:
+      - .//div[@class='price']/text()
+    pipes: [trim, tofloat]
+```
+
+### Behavior with Pipes
+
+Pipes are applied to **each XPath attempt** before checking if the result is empty:
+
+```go
+// Example: field with whitespace-only content
+// HTML: <h2>   </h2><h3>Product Name</h3>
+
+config := &Config{
+    Container: "//div",
+    Fields: map[string]FieldConfig{
+        "name": {
+            XPath:    ".//h2/text()",          // Returns "   "
+            AltXPath: []string{".//h3/text()"}, // Returns "Product Name"
+            Pipes:    []string{"trim"},
+        },
+    },
+}
+
+// Process:
+// 1. Extract ".//h2/text()" → "   "
+// 2. Apply "trim" pipe → ""
+// 3. Result is empty, try altXpath
+// 4. Extract ".//h3/text()" → "Product Name"
+// 5. Apply "trim" pipe → "Product Name"
+// 6. Result is non-empty, return "Product Name"
+```
+
+This allows you to:
+- Filter out whitespace-only elements
+- Reject placeholder text (e.g., "N/A", "TBD")
+- Validate data before accepting it as the final result
+
+### Empty vs Error
+
+**Important:** Fallback is triggered by **empty results**, not XPath syntax errors.
+
+- ✅ **Empty result** → Try next XPath in fallback chain
+- ❌ **XPath syntax error** → Fail immediately (configuration bug)
+
+This design ensures:
+- Syntax errors are caught during validation
+- Debugging is easier (errors fail fast)
+- Fallback is only used for legitimate structural variations
+
+### Examples
+
+**Use Case 1: Different Title Tags**
+```json
+{
+  "fields": {
+    "title": {
+      "xpath": ".//h2[@class='title']/text()",
+      "altXpath": [".//h1[@class='heading']/text()", ".//div[@class='title']/text()"]
+    }
+  }
+}
+```
+
+**Use Case 2: Multiple Price Formats**
+```json
+{
+  "fields": {
+    "price": {
+      "xpath": ".//span[@class='sale-price']/text()",
+      "altXpath": [".//span[@class='regular-price']/text()"],
+      "pipes": ["trim", "tofloat"]
+    }
+  }
+}
+```
+
+**Use Case 3: Container Variations**
+```json
+{
+  "container": "//div[@class='product-grid']//div[@class='product']",
+  "altContainer": [
+    "//ul[@class='products']//li[@class='product']",
+    "//section[@class='catalog']//article"
+  ]
 }
 ```
 
@@ -719,8 +877,9 @@ Scraping configuration structure.
 ```go
 type Config struct {
     // XPath definitions
-    Container string                    // Repeating element selector
-    Fields    map[string]FieldConfig    // Field name → Field configuration
+    Container    string                    // Repeating element selector
+    AltContainer []string                  // Alternative container selectors (fallback)
+    Fields       map[string]FieldConfig    // Field name → Field configuration
 
     // HTTP options
     Timeout    time.Duration
@@ -738,8 +897,9 @@ Field configuration with XPath and optional pipes.
 
 ```go
 type FieldConfig struct {
-    XPath string   // XPath expression
-    Pipes []string // Pipe chain (e.g., ["trim", "tofloat"])
+    XPath    string   // XPath expression
+    AltXPath []string // Alternative XPath expressions (fallback)
+    Pipes    []string // Pipe chain (e.g., ["trim", "tofloat"])
 }
 ```
 

@@ -7,6 +7,7 @@ Type-safe HTML scraping with XPath selectors and external configuration.
 - **Type-safe** with Go generics
 - **External config** (JSON/YAML)
 - **XPath validation** before scraping
+- **Fallback XPath chains** (`altXpath`, `altContainer`) for handling varying HTML structures
 - **Data transformation pipes** (trim, int/float conversion, regex, URL parsing, etc.)
 - **Custom pipe registration** for domain-specific transformations
 - **Health checks** for URLs
@@ -78,6 +79,34 @@ export GTMLP_TIMEOUT=30s
 export GTMLP_USER_AGENT=MyBot/1.0
 export GTMLP_PROXY=http://proxy:8080
 ```
+
+## Fallback XPath Chains
+
+Handle varying HTML structures with `altXpath` and `altContainer`:
+
+```json
+{
+  "container": "//div[@class='product']",
+  "altContainer": ["//article[@class='product']", "//div[@class='item']"],
+  "fields": {
+    "name": {
+      "xpath": ".//h2/text()",
+      "altXpath": [".//h3/text()", ".//h1/text()"]
+    },
+    "price": {
+      "xpath": ".//span[@class='price']/text()",
+      "altXpath": [".//div[@class='price']/text()"],
+      "pipes": ["trim", "tofloat"]
+    }
+  }
+}
+```
+
+**How it works:**
+- Tries primary XPath first
+- If empty (after pipes), tries each `altXpath` in order
+- Returns first non-empty result
+- Container fallback works the same way with `altContainer`
 
 ## Data Transformation Pipes
 

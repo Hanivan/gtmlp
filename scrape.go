@@ -30,19 +30,12 @@ func Scrape[T any](ctx context.Context, html string, config *Config) ([]T, error
 		}
 	}
 
-	// Compile container XPath
-	containerExpr, err := xpath.Compile(config.Container)
+	// Find container nodes with fallback
+	containerNodes, err := findContainers(doc, config.Container, config.AltContainer)
 	if err != nil {
-		return nil, &ScrapeError{
-			Type:    ErrTypeXPath,
-			Message: "invalid container XPath",
-			XPath:   config.Container,
-			Cause:   err,
-		}
+		return nil, err
 	}
 
-	// Find all container nodes
-	containerNodes := containerExpr.Evaluate(htmlquery.CreateXPathNavigator(doc)).(*xpath.NodeIterator)
 	var results []T
 
 	for containerNodes.MoveNext() {
@@ -98,19 +91,12 @@ func ScrapeUntyped(ctx context.Context, html string, config *Config) ([]map[stri
 		}
 	}
 
-	// Compile container XPath
-	containerExpr, err := xpath.Compile(config.Container)
+	// Find container nodes with fallback
+	containerNodes, err := findContainers(doc, config.Container, config.AltContainer)
 	if err != nil {
-		return nil, &ScrapeError{
-			Type:    ErrTypeXPath,
-			Message: "invalid container XPath",
-			XPath:   config.Container,
-			Cause:   err,
-		}
+		return nil, err
 	}
 
-	// Find all container nodes
-	containerNodes := containerExpr.Evaluate(htmlquery.CreateXPathNavigator(doc)).(*xpath.NodeIterator)
 	var results []map[string]any
 
 	for containerNodes.MoveNext() {
@@ -135,6 +121,43 @@ func ScrapeUntyped(ctx context.Context, html string, config *Config) ([]map[stri
 	}
 
 	return results, nil
+}
+
+// findContainers finds container nodes with altContainer fallback support
+func findContainers(doc *html.Node, container string, altContainers []string) (*xpath.NodeIterator, error) {
+	// Build list of container XPaths to try
+	containers := []string{container}
+	containers = append(containers, altContainers...)
+
+	// Try each container XPath in sequence
+	for _, containerXPath := range containers {
+		// Compile container XPath
+		containerExpr, err := xpath.Compile(containerXPath)
+		if err != nil {
+			return nil, &ScrapeError{
+				Type:    ErrTypeXPath,
+				Message: "invalid container XPath",
+				XPath:   containerXPath,
+				Cause:   err,
+			}
+		}
+
+		// Find container nodes
+		containerNodes := containerExpr.Evaluate(htmlquery.CreateXPathNavigator(doc)).(*xpath.NodeIterator)
+
+		// Check if we found any containers
+		if containerNodes.MoveNext() {
+			// Found at least one container, re-evaluate to get a fresh iterator
+			return containerExpr.Evaluate(htmlquery.CreateXPathNavigator(doc)).(*xpath.NodeIterator), nil
+		}
+
+		// No containers found, try next XPath
+	}
+
+	// All container XPaths failed, return empty iterator
+	// Create an empty iterator by using an XPath that matches nothing
+	emptyExpr, _ := xpath.Compile("/*[false()]")
+	return emptyExpr.Evaluate(htmlquery.CreateXPathNavigator(doc)).(*xpath.NodeIterator), nil
 }
 
 // extractField extracts a value from a node using XPath
@@ -184,47 +207,82 @@ func extractValue(node *html.Node) any {
 	return strings.TrimSpace(htmlquery.InnerText(node))
 }
 
-// extractFieldWithPipes extracts a value and applies pipes
+// extractFieldWithPipes extracts a value and applies pipes, with altXpath fallback
 func extractFieldWithPipes(ctx context.Context, containerNode *html.Node, fieldConfig FieldConfig) (any, error) {
-	// Extract raw value with XPath
-	rawValue := extractField(containerNode, fieldConfig.XPath)
+	// Build list of XPaths to try: primary + alternatives
+	xpaths := []string{fieldConfig.XPath}
+	xpaths = append(xpaths, fieldConfig.AltXPath...)
 
-	// Convert to string for pipe processing
-	inputStr, ok := rawValue.(string)
-	if !ok {
-		inputStr = fmt.Sprintf("%v", rawValue)
-	}
+	// Try each XPath in sequence
+	for _, xpath := range xpaths {
+		// Extract raw value with XPath
+		rawValue := extractField(containerNode, xpath)
 
-	// Apply pipes if defined
-	value := any(inputStr)
-	if len(fieldConfig.Pipes) > 0 {
-		for _, pipeDef := range fieldConfig.Pipes {
-			pipeName, params := parsePipeDefinition(pipeDef)
-			pipe := getPipe(pipeName)
-
-			if pipe == nil {
-				return "", &ScrapeError{
-					Type:    ErrTypePipe,
-					Message: fmt.Sprintf("unknown pipe '%s'", pipeName),
-				}
-			}
-
-			result, err := pipe(ctx, inputStr, params)
-			if err != nil {
-				return "", &ScrapeError{
-					Type:    ErrTypePipe,
-					Message: fmt.Sprintf("pipe '%s' failed", pipeName),
-					Cause:   &PipeError{PipeName: pipeName, Input: inputStr, Params: params, Cause: err},
-				}
-			}
-
-			value = result
-			// Convert result to string for next pipe
-			inputStr = fmt.Sprintf("%v", result)
+		// Convert to string for pipe processing
+		inputStr, ok := rawValue.(string)
+		if !ok {
+			inputStr = fmt.Sprintf("%v", rawValue)
 		}
+
+		// Apply pipes if defined
+		value := any(inputStr)
+		if len(fieldConfig.Pipes) > 0 {
+			for _, pipeDef := range fieldConfig.Pipes {
+				pipeName, params := parsePipeDefinition(pipeDef)
+				pipe := getPipe(pipeName)
+
+				if pipe == nil {
+					return "", &ScrapeError{
+						Type:    ErrTypePipe,
+						Message: fmt.Sprintf("unknown pipe '%s'", pipeName),
+					}
+				}
+
+				result, err := pipe(ctx, inputStr, params)
+				if err != nil {
+					return "", &ScrapeError{
+						Type:    ErrTypePipe,
+						Message: fmt.Sprintf("pipe '%s' failed", pipeName),
+						Cause:   &PipeError{PipeName: pipeName, Input: inputStr, Params: params, Cause: err},
+					}
+				}
+
+				value = result
+				// Convert result to string for next pipe
+				inputStr = fmt.Sprintf("%v", result)
+			}
+		}
+
+		// Check if result is non-empty after pipes
+		if !isEmpty(value) {
+			return value, nil
+		}
+
+		// Result is empty, try next XPath
 	}
 
-	return value, nil
+	// All XPaths failed, return empty string
+	return "", nil
+}
+
+// isEmpty checks if a value is considered empty after pipe processing
+func isEmpty(value any) bool {
+	if value == nil {
+		return true
+	}
+
+	switch v := value.(type) {
+	case string:
+		return v == ""
+	case int, int64:
+		return v == 0
+	case float64:
+		return v == 0.0
+	default:
+		// For other types, convert to string and check
+		str := fmt.Sprintf("%v", v)
+		return str == "" || str == "0"
+	}
 }
 
 // mapToStruct converts a map to a struct using JSON tags

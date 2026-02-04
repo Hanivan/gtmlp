@@ -1,6 +1,7 @@
 package gtmlp
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/antchfx/htmlquery"
@@ -68,8 +69,18 @@ func ValidateXPathURL(url string, config *Config) (map[string]ValidationResult, 
 	// Use container and fields from config
 	xpaths := make(map[string]string)
 	xpaths["container"] = config.Container
+
+	// Add altContainer XPaths
+	for i, altContainer := range config.AltContainer {
+		xpaths[fmt.Sprintf("altContainer[%d]", i)] = altContainer
+	}
+
+	// Add field XPaths and altXpath
 	for field, fieldConfig := range config.Fields {
 		xpaths[field] = fieldConfig.XPath
+		for i, altXPath := range fieldConfig.AltXPath {
+			xpaths[fmt.Sprintf("%s.altXpath[%d]", field, i)] = altXPath
+		}
 	}
 
 	results := ValidateXPath(html, xpaths)

@@ -1,13 +1,26 @@
 # E-commerce product scraping configuration (YAML)
 
-# Repeating element selector
+# Repeating element selector with fallbacks for different page layouts
 container: "//li[@data-products='item']"
+altContainer:
+  - "//div[@class='product-item']"
+  - "//article[@class='product']"
 
-# Field definitions
+# Field definitions with altXpath fallbacks
 fields:
   name:
     xpath: ".//h2[@class='product-name woocommerce-loop-product__title']/text()"
+    altXpath:
+      - ".//h3[@class='product-title']/text()"
+      - ".//a[@class='product-link']/text()"
   price:
     xpath: ".//span[@class='product-price woocommerce-Price-amount amount']/bdi/text()[normalize-space()]"
+    altXpath:
+      - ".//span[@class='price']/text()"
+      - ".//div[@class='product-price']/text()"
+    pipes: ["trim", "tofloat"]
   link:
     xpath: ".//a[@class='woocommerce-LoopProduct-link woocommerce-loop-product__link']/@href"
+    altXpath:
+      - ".//a[@class='product-link']/@href"
+      - ".//div[@class='product']//a[1]/@href"

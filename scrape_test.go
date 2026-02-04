@@ -735,3 +735,258 @@ func TestScrapeURLUntyped_HTTPError(t *testing.T) {
 		t.Errorf("Expected nil results, got %v", results)
 	}
 }
+
+// Test HTML with varying structures for altXpath tests
+const testHTMLAltStructure = `<html><body>
+  <div class="product">
+    <h1>Product A</h1>
+    <span class="price">$15</span>
+  </div>
+  <div class="item">
+    <h2>Product B</h2>
+    <div class="price">$25</div>
+  </div>
+  <article class="listing">
+    <h2>Product C</h2>
+    <span class="cost">$35</span>
+  </article>
+</body></html>`
+
+const testHTMLWhitespace = `<html><body>
+  <div class="product">
+    <h2>   </h2>
+    <span class="alt-name">Product With Fallback</span>
+    <span class="price">$50</span>
+  </div>
+</body></html>`
+
+// TestAltContainer_Fallback tests container fallback when primary is empty
+func TestAltContainer_Fallback(t *testing.T) {
+	config := &Config{
+		Container:    `//div[@class="nonexistent"]`,
+		AltContainer: []string{`//div[@class="item"]`, `//article[@class="listing"]`},
+		Fields: map[string]FieldConfig{
+			"name": {XPath: `.//h2/text()`},
+		},
+		Timeout: 30 * time.Second,
+	}
+
+	results, err := ScrapeUntyped(context.Background(), testHTMLAltStructure, config)
+
+	if err != nil {
+		t.Fatalf("Scrape failed: %v", err)
+	}
+
+	if len(results) != 1 {
+		t.Fatalf("Expected 1 result (from first altContainer), got %d", len(results))
+	}
+
+	if results[0]["name"] != "Product B" {
+		t.Errorf("Expected name 'Product B', got '%v'", results[0]["name"])
+	}
+}
+
+// TestAltContainer_AllFail tests when all containers fail
+func TestAltContainer_AllFail(t *testing.T) {
+	config := &Config{
+		Container:    `//div[@class="missing"]`,
+		AltContainer: []string{`//div[@class="also-missing"]`, `//article[@class="nope"]`},
+		Fields: map[string]FieldConfig{
+			"name": {XPath: `.//h2/text()`},
+		},
+		Timeout: 30 * time.Second,
+	}
+
+	results, err := ScrapeUntyped(context.Background(), testHTMLAltStructure, config)
+
+	if err != nil {
+		t.Fatalf("Scrape failed: %v", err)
+	}
+
+	if len(results) != 0 {
+		t.Fatalf("Expected 0 results when all containers fail, got %d", len(results))
+	}
+}
+
+// TestAltXPath_Fallback tests field XPath fallback when primary is empty
+func TestAltXPath_Fallback(t *testing.T) {
+	config := &Config{
+		Container: `//div[@class="product"]`,
+		Fields: map[string]FieldConfig{
+			"name": {
+				XPath:    `.//h3/text()`,
+				AltXPath: []string{`.//h2/text()`, `.//h1/text()`},
+			},
+		},
+		Timeout: 30 * time.Second,
+	}
+
+	results, err := ScrapeUntyped(context.Background(), testHTMLAltStructure, config)
+
+	if err != nil {
+		t.Fatalf("Scrape failed: %v", err)
+	}
+
+	if len(results) != 1 {
+		t.Fatalf("Expected 1 result, got %d", len(results))
+	}
+
+	// Primary h3 doesn't exist, should fallback to h2 -> empty, then h1 -> "Product A"
+	if results[0]["name"] != "Product A" {
+		t.Errorf("Expected name 'Product A' from altXpath fallback, got '%v'", results[0]["name"])
+	}
+}
+
+// TestAltXPath_WithPipes tests altXpath with pipe validation
+func TestAltXPath_WithPipes(t *testing.T) {
+	config := &Config{
+		Container: `//div[@class="product"]`,
+		Fields: map[string]FieldConfig{
+			"name": {
+				XPath:    `.//h2/text()`,
+				AltXPath: []string{`.//span[@class="alt-name"]/text()`},
+				Pipes:    []string{"trim"},
+			},
+		},
+		Timeout: 30 * time.Second,
+	}
+
+	results, err := ScrapeUntyped(context.Background(), testHTMLWhitespace, config)
+
+	if err != nil {
+		t.Fatalf("Scrape failed: %v", err)
+	}
+
+	if len(results) != 1 {
+		t.Fatalf("Expected 1 result, got %d", len(results))
+	}
+
+	// Primary h2 has only whitespace "   " -> trim -> "" -> fallback to alt-name
+	if results[0]["name"] != "Product With Fallback" {
+		t.Errorf("Expected 'Product With Fallback' after whitespace fallback, got '%v'", results[0]["name"])
+	}
+}
+
+// TestAltXPath_AllFail tests when all XPaths fail
+func TestAltXPath_AllFail(t *testing.T) {
+	config := &Config{
+		Container: `//div[@class="product"]`,
+		Fields: map[string]FieldConfig{
+			"name": {
+				XPath:    `.//h5/text()`,
+				AltXPath: []string{`.//h6/text()`, `.//h7/text()`},
+			},
+			"price": {XPath: `.//span[@class="price"]/text()`},
+		},
+		Timeout: 30 * time.Second,
+	}
+
+	results, err := ScrapeUntyped(context.Background(), testHTML, config)
+
+	if err != nil {
+		t.Fatalf("Scrape failed: %v", err)
+	}
+
+	if len(results) != 2 {
+		t.Fatalf("Expected 2 results, got %d", len(results))
+	}
+
+	// All XPaths for 'name' fail, should return empty string
+	if results[0]["name"] != "" {
+		t.Errorf("Expected empty name when all XPaths fail, got '%v'", results[0]["name"])
+	}
+
+	// Price should still work
+	if results[0]["price"] != "$10" {
+		t.Errorf("Expected price '$10', got '%v'", results[0]["price"])
+	}
+}
+
+// TestAltXPath_MultipleAlternatives tests multiple alternatives with first match
+func TestAltXPath_MultipleAlternatives(t *testing.T) {
+	config := &Config{
+		Container: `//article[@class="listing"]`,
+		Fields: map[string]FieldConfig{
+			"name": {
+				XPath:    `.//h3/text()`,
+				AltXPath: []string{`.//h1/text()`, `.//h2/text()`, `.//span/text()`},
+			},
+		},
+		Timeout: 30 * time.Second,
+	}
+
+	results, err := ScrapeUntyped(context.Background(), testHTMLAltStructure, config)
+
+	if err != nil {
+		t.Fatalf("Scrape failed: %v", err)
+	}
+
+	if len(results) != 1 {
+		t.Fatalf("Expected 1 result, got %d", len(results))
+	}
+
+	// h3 empty -> h1 empty -> h2 has "Product C" -> should use h2
+	if results[0]["name"] != "Product C" {
+		t.Errorf("Expected 'Product C' from second altXpath, got '%v'", results[0]["name"])
+	}
+}
+
+// TestAltXPath_BackwardCompat tests configs without altXpath work unchanged
+func TestAltXPath_BackwardCompat(t *testing.T) {
+	// Config without any alt fields
+	config := &Config{
+		Container: `//div[@class="product"]`,
+		Fields: map[string]FieldConfig{
+			"name":  {XPath: `.//h2/text()`},
+			"price": {XPath: `.//span[@class="price"]/text()`},
+		},
+		Timeout: 30 * time.Second,
+	}
+
+	results, err := Scrape[Product](context.Background(), testHTML, config)
+
+	if err != nil {
+		t.Fatalf("Scrape failed: %v", err)
+	}
+
+	if len(results) != 2 {
+		t.Fatalf("Expected 2 results, got %d", len(results))
+	}
+
+	if results[0].Name != "Product 1" {
+		t.Errorf("Expected name 'Product 1', got '%s'", results[0].Name)
+	}
+	if results[0].Price != "$10" {
+		t.Errorf("Expected price '$10', got '%s'", results[0].Price)
+	}
+}
+
+// TestAltXPath_EmptyArrays tests empty altXpath/altContainer arrays
+func TestAltXPath_EmptyArrays(t *testing.T) {
+	config := &Config{
+		Container:    `//div[@class="product"]`,
+		AltContainer: []string{}, // Empty array
+		Fields: map[string]FieldConfig{
+			"name": {
+				XPath:    `.//h2/text()`,
+				AltXPath: []string{}, // Empty array
+			},
+		},
+		Timeout: 30 * time.Second,
+	}
+
+	results, err := ScrapeUntyped(context.Background(), testHTML, config)
+
+	if err != nil {
+		t.Fatalf("Scrape failed: %v", err)
+	}
+
+	if len(results) != 2 {
+		t.Fatalf("Expected 2 results, got %d", len(results))
+	}
+
+	if results[0]["name"] != "Product 1" {
+		t.Errorf("Expected name 'Product 1', got '%v'", results[0]["name"])
+	}
+}
+

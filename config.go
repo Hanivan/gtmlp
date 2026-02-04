@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/antchfx/xpath"
 	"gopkg.in/yaml.v3"
 )
 
@@ -132,10 +133,64 @@ func (c *Config) Validate() error {
 		}
 	}
 
+	// Validate container XPath syntax
+	if _, err := xpath.Compile(c.Container); err != nil {
+		return &ScrapeError{
+			Type:    ErrTypeXPath,
+			Message: "invalid container xpath syntax",
+			XPath:   c.Container,
+			Cause:   err,
+		}
+	}
+
+	// Validate altContainer XPath syntax
+	for i, altXPath := range c.AltContainer {
+		if _, err := xpath.Compile(altXPath); err != nil {
+			return &ScrapeError{
+				Type:    ErrTypeXPath,
+				Message: fmt.Sprintf("invalid altContainer[%d] xpath syntax", i),
+				XPath:   altXPath,
+				Cause:   err,
+			}
+		}
+	}
+
 	if len(c.Fields) == 0 {
 		return &ScrapeError{
 			Type:    ErrTypeConfig,
 			Message: "at least one field is required",
+		}
+	}
+
+	// Validate field XPath syntax
+	for fieldName, fieldConfig := range c.Fields {
+		if fieldConfig.XPath == "" {
+			return &ScrapeError{
+				Type:    ErrTypeConfig,
+				Message: fmt.Sprintf("field '%s' xpath is required", fieldName),
+			}
+		}
+
+		// Validate primary XPath
+		if _, err := xpath.Compile(fieldConfig.XPath); err != nil {
+			return &ScrapeError{
+				Type:    ErrTypeXPath,
+				Message: fmt.Sprintf("invalid xpath for field '%s'", fieldName),
+				XPath:   fieldConfig.XPath,
+				Cause:   err,
+			}
+		}
+
+		// Validate altXpath entries
+		for i, altXPath := range fieldConfig.AltXPath {
+			if _, err := xpath.Compile(altXPath); err != nil {
+				return &ScrapeError{
+					Type:    ErrTypeXPath,
+					Message: fmt.Sprintf("invalid altXpath[%d] for field '%s'", i, fieldName),
+					XPath:   altXPath,
+					Cause:   err,
+				}
+			}
 		}
 	}
 

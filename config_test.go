@@ -521,3 +521,126 @@ func TestValidate_NegativeTimeout(t *testing.T) {
 		t.Errorf("expected 'timeout must be positive' message, got '%s'", scrapeErr.Message)
 	}
 }
+
+// TestValidate_InvalidAltContainer tests error when altContainer has invalid XPath
+func TestValidate_InvalidAltContainer(t *testing.T) {
+	cfg := &Config{
+		Container:    "//div[@class='product']",
+		AltContainer: []string{"//valid", "//invalid[[["},
+		Fields: map[string]FieldConfig{
+			"name": {XPath: ".//h2/text()"},
+		},
+		Timeout: 30 * time.Second,
+	}
+
+	err := cfg.Validate()
+	if err == nil {
+		t.Fatal("expected error for invalid altContainer XPath, got nil")
+	}
+
+	if !Is(err, ErrTypeXPath) {
+		t.Errorf("expected ErrTypeXPath, got %v", err)
+	}
+}
+
+// TestValidate_InvalidAltXPath tests error when altXpath has invalid XPath
+func TestValidate_InvalidAltXPath(t *testing.T) {
+	cfg := &Config{
+		Container: "//div[@class='product']",
+		Fields: map[string]FieldConfig{
+			"name": {
+				XPath:    ".//h2/text()",
+				AltXPath: []string{".//h1/text()", ".//invalid[[[@"},
+			},
+		},
+		Timeout: 30 * time.Second,
+	}
+
+	err := cfg.Validate()
+	if err == nil {
+		t.Fatal("expected error for invalid altXpath, got nil")
+	}
+
+	if !Is(err, ErrTypeXPath) {
+		t.Errorf("expected ErrTypeXPath, got %v", err)
+	}
+}
+
+// TestValidate_ValidAltXPath tests that valid altXpath passes validation
+func TestValidate_ValidAltXPath(t *testing.T) {
+	cfg := &Config{
+		Container:    "//div[@class='product']",
+		AltContainer: []string{"//div[@class='item']", "//article"},
+		Fields: map[string]FieldConfig{
+			"name": {
+				XPath:    ".//h2/text()",
+				AltXPath: []string{".//h1/text()", ".//h3/text()"},
+			},
+			"price": {
+				XPath:    ".//span[@class='price']/text()",
+				AltXPath: []string{".//div[@class='price']/text()"},
+			},
+		},
+		Timeout: 30 * time.Second,
+	}
+
+	err := cfg.Validate()
+	if err != nil {
+		t.Fatalf("expected valid config with altXpath to pass validation, got error: %v", err)
+	}
+}
+
+// TestValidate_EmptyAltArrays tests that empty alt arrays are valid
+func TestValidate_EmptyAltArrays(t *testing.T) {
+	cfg := &Config{
+		Container:    "//div[@class='product']",
+		AltContainer: []string{},
+		Fields: map[string]FieldConfig{
+			"name": {
+				XPath:    ".//h2/text()",
+				AltXPath: []string{},
+			},
+		},
+		Timeout: 30 * time.Second,
+	}
+
+	err := cfg.Validate()
+	if err != nil {
+		t.Fatalf("expected config with empty alt arrays to pass validation, got error: %v", err)
+	}
+}
+
+// TestParseConfig_WithAltXPath tests parsing JSON config with altXpath
+func TestParseConfig_WithAltXPath(t *testing.T) {
+	jsonConfig := `{
+		"container": "//div[@class='product']",
+		"altContainer": ["//div[@class='item']"],
+		"fields": {
+			"name": {
+				"xpath": ".//h2/text()",
+				"altXpath": [".//h1/text()", ".//h3/text()"]
+			}
+		}
+	}`
+
+	cfg, err := ParseConfig(jsonConfig, FormatJSON, nil)
+	if err != nil {
+		t.Fatalf("ParseConfig failed: %v", err)
+	}
+
+	if len(cfg.AltContainer) != 1 {
+		t.Errorf("expected 1 altContainer, got %d", len(cfg.AltContainer))
+	}
+
+	if cfg.AltContainer[0] != "//div[@class='item']" {
+		t.Errorf("expected altContainer '//div[@class='item']', got '%s'", cfg.AltContainer[0])
+	}
+
+	if len(cfg.Fields["name"].AltXPath) != 2 {
+		t.Errorf("expected 2 altXpath entries, got %d", len(cfg.Fields["name"].AltXPath))
+	}
+
+	if cfg.Fields["name"].AltXPath[0] != ".//h1/text()" {
+		t.Errorf("expected first altXpath './/h1/text()', got '%s'", cfg.Fields["name"].AltXPath[0])
+	}
+}

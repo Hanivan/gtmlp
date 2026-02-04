@@ -1,8 +1,18 @@
 {
   "container": "//div[@class='product']",
+  "altContainer": ["//article[@class='product']", "//div[@class='item']"],
   "fields": {
-    "name": {"xpath": ".//h2/text()"},
-    "price": {"xpath": ".//span[@class='price']/text()"},
-    "link": {"xpath": ".//a/@href"}
+    "name": {
+      "xpath": ".//h2/text()",
+      "altXpath": [".//h3/text()", ".//h1/text()"]
+    },
+    "price": {
+      "xpath": ".//span[@class='price']/text()",
+      "altXpath": [".//div[@class='price']/text()"],
+      "pipes": ["trim", "tofloat"]
+    },
+    "link": {
+      "xpath": ".//a/@href"
+    }
   }
 }

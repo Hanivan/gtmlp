@@ -1,8 +1,17 @@
 {
   "container": "//li[@data-products='item']",
+  "altContainer": ["//div[@class='product-item']"],
   "fields": {
-    "name": {"xpath": ".//h2[@class='product-name woocommerce-loop-product__title']/text()"},
-    "price": {"xpath": ".//span[@class='product-price woocommerce-Price-amount amount']/bdi/text()[normalize-space()]"},
-    "link": {"xpath": ".//a[@class='woocommerce-LoopProduct-link woocommerce-loop-product__link']/@href"}
+    "name": {
+      "xpath": ".//h2[@class='product-name woocommerce-loop-product__title']/text()",
+      "altXpath": [".//h3[@class='product-title']/text()"]
+    },
+    "price": {
+      "xpath": ".//span[@class='product-price woocommerce-Price-amount amount']/bdi/text()[normalize-space()]",
+      "altXpath": [".//span[@class='price']/text()"]
+    },
+    "link": {
+      "xpath": ".//a[@class='woocommerce-LoopProduct-link woocommerce-loop-product__link']/@href"
+    }
   }
 }

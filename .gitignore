@@ -33,6 +33,7 @@ api
 migrate
 seeder
 *templ.go
+testdata/
 
 # OS X generated file
 .DS_Store

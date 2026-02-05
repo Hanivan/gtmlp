@@ -59,6 +59,9 @@ func CheckHealthMulti(urls []string) []HealthCheckResult {
 		return []HealthCheckResult{}
 	}
 
+	getLogger().Info("health check multi starting",
+		"urls_count", len(urls))
+
 	results := make([]HealthCheckResult, len(urls))
 	var wg sync.WaitGroup
 
@@ -77,14 +80,41 @@ func CheckHealthMulti(urls []string) []HealthCheckResult {
 	}
 
 	wg.Wait()
+
+	// Log summary
+	healthy := 0
+	unhealthy := 0
+	errors := 0
+	for _, r := range results {
+		switch r.Status {
+		case StatusHealthy:
+			healthy++
+		case StatusUnhealthy:
+			unhealthy++
+		case StatusError:
+			errors++
+		}
+	}
+
+	getLogger().Info("health check multi completed",
+		"total", len(urls),
+		"healthy", healthy,
+		"unhealthy", unhealthy,
+		"errors", errors)
+
 	return results
 }
 
 // fetchForHealth fetches a URL and returns the HTTP response, even for 4xx/5xx status codes
 // Unlike the regular fetch function, this doesn't treat non-2xx codes as errors
 func fetchForHealth(url string, config *Config) (*http.Response, error) {
+	getLogger().Debug("health check fetch starting",
+		"url", url,
+		"timeout", config.Timeout)
+
 	// Validate URL
 	if url == "" {
+		getLogger().Error("health check empty url")
 		return nil, &ScrapeError{
 			Type:    ErrTypeNetwork,
 			Message: "URL cannot be empty",
@@ -94,6 +124,9 @@ func fetchForHealth(url string, config *Config) (*http.Response, error) {
 	// Parse and validate URL
 	parsedURL, err := neturl.Parse(url)
 	if err != nil {
+		getLogger().Error("health check invalid url format",
+			"url", url,
+			"error", err.Error())
 		return nil, &ScrapeError{
 			Type:    ErrTypeNetwork,
 			Message: "invalid URL format",
@@ -103,6 +136,9 @@ func fetchForHealth(url string, config *Config) (*http.Response, error) {
 	}
 
 	if parsedURL.Scheme != "http" && parsedURL.Scheme != "https" {
+		getLogger().Error("health check invalid url scheme",
+			"url", url,
+			"scheme", parsedURL.Scheme)
 		return nil, &ScrapeError{
 			Type:    ErrTypeNetwork,
 			Message: "URL scheme must be http or https",
@@ -119,6 +155,10 @@ func fetchForHealth(url string, config *Config) (*http.Response, error) {
 	if config.Proxy != "" {
 		proxyURL, err := neturl.Parse(config.Proxy)
 		if err != nil {
+			getLogger().Error("health check invalid proxy url",
+				"url", url,
+				"proxy", config.Proxy,
+				"error", err.Error())
 			return nil, &ScrapeError{
 				Type:    ErrTypeNetwork,
 				Message: "invalid proxy URL",
@@ -129,11 +169,17 @@ func fetchForHealth(url string, config *Config) (*http.Response, error) {
 		client.Transport = &http.Transport{
 			Proxy: http.ProxyURL(proxyURL),
 		}
+		getLogger().Debug("health check using proxy",
+			"url", url,
+			"proxy", config.Proxy)
 	}
 
 	// Build request
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
+		getLogger().Error("health check failed to create request",
+			"url", url,
+			"error", err.Error())
 		return nil, &ScrapeError{
 			Type:    ErrTypeNetwork,
 			Message: "failed to create HTTP request",
@@ -156,9 +202,16 @@ func fetchForHealth(url string, config *Config) (*http.Response, error) {
 		req.Header.Set(key, value)
 	}
 
+	getLogger().Debug("health check sending request",
+		"url", url,
+		"user_agent", config.UserAgent)
+
 	// Execute request (no retries for health checks)
 	resp, err := client.Do(req)
 	if err != nil {
+		getLogger().Warn("health check request failed",
+			"url", url,
+			"error", err.Error())
 		return nil, &ScrapeError{
 			Type:    ErrTypeNetwork,
 			Message: "HTTP request failed",
@@ -166,6 +219,10 @@ func fetchForHealth(url string, config *Config) (*http.Response, error) {
 			Cause:   err,
 		}
 	}
+
+	getLogger().Debug("health check response received",
+		"url", url,
+		"status", resp.StatusCode)
 
 	return resp, nil
 }
@@ -178,8 +235,13 @@ func CheckHealthWithOptions(url string, config *Config) HealthCheckResult {
 		Code:   0,
 	}
 
+	getLogger().Info("health check starting",
+		"url", url,
+		"timeout", config.Timeout)
+
 	// Validate URL
 	if url == "" {
+		getLogger().Error("health check empty url")
 		result.Error = &ScrapeError{
 			Type:    ErrTypeNetwork,
 			Message: "URL cannot be empty",
@@ -198,6 +260,11 @@ func CheckHealthWithOptions(url string, config *Config) HealthCheckResult {
 
 	if err != nil {
 		result.Error = err
+		getLogger().Info("health check completed with error",
+			"url", url,
+			"status", "error",
+			"latency_ms", result.Latency.Milliseconds(),
+			"error", err.Error())
 		return result
 	}
 
@@ -213,11 +280,26 @@ func CheckHealthWithOptions(url string, config *Config) HealthCheckResult {
 	// Determine health status based on status code
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 		result.Status = StatusHealthy
+		getLogger().Info("health check completed",
+			"url", url,
+			"status", "healthy",
+			"status_code", resp.StatusCode,
+			"latency_ms", result.Latency.Milliseconds())
 	} else if resp.StatusCode >= 400 {
 		result.Status = StatusUnhealthy
+		getLogger().Info("health check completed",
+			"url", url,
+			"status", "unhealthy",
+			"status_code", resp.StatusCode,
+			"latency_ms", result.Latency.Milliseconds())
 	} else {
 		// 3xx redirects - consider unhealthy for health check purposes
 		result.Status = StatusUnhealthy
+		getLogger().Warn("health check encountered redirect",
+			"url", url,
+			"status", "unhealthy",
+			"status_code", resp.StatusCode,
+			"latency_ms", result.Latency.Milliseconds())
 	}
 
 	return result

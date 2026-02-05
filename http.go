@@ -177,6 +177,9 @@ func fetch(url string, config *Config) (*http.Response, error) {
 
 // fetchHTML fetches a URL and returns the HTML content as a string
 func fetchHTML(url string, config *Config) (string, error) {
+	getLogger().Debug("fetching html",
+		"url", url)
+
 	resp, err := fetch(url, config)
 	if err != nil {
 		return "", err
@@ -186,6 +189,9 @@ func fetchHTML(url string, config *Config) (string, error) {
 	// Read response body
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
+		getLogger().Error("failed to read response body",
+			"url", url,
+			"error", err.Error())
 		return "", &ScrapeError{
 			Type:    ErrTypeNetwork,
 			Message: "failed to read response body",
@@ -196,6 +202,10 @@ func fetchHTML(url string, config *Config) (string, error) {
 
 	// Convert to string and trim whitespace
 	html := strings.TrimSpace(string(body))
+
+	getLogger().Debug("html fetched successfully",
+		"url", url,
+		"size_bytes", len(html))
 
 	return html, nil
 }

@@ -340,6 +340,10 @@ func mapToStruct(m map[string]any, target any) error {
 
 // ScrapeURL fetches a URL and scrapes it with config (typed)
 func ScrapeURL[T any](ctx context.Context, url string, config *Config) ([]T, error) {
+	getLogger().Info("scrape url starting",
+		"url", url,
+		"has_pagination", config.Pagination != nil)
+
 	// Check if pagination is configured
 	if config.Pagination != nil {
 		// Use pagination logic
@@ -352,6 +356,10 @@ func ScrapeURL[T any](ctx context.Context, url string, config *Config) ([]T, err
 		for _, page := range results.Pages {
 			allItems = append(allItems, page.Items...)
 		}
+		getLogger().Info("scrape url with pagination completed",
+			"url", url,
+			"total_items", len(allItems),
+			"pages", len(results.Pages))
 		return allItems, nil
 	}
 
@@ -367,6 +375,10 @@ func ScrapeURL[T any](ctx context.Context, url string, config *Config) ([]T, err
 
 // ScrapeURLUntyped fetches a URL and scrapes it, returning maps (no type parameter)
 func ScrapeURLUntyped(ctx context.Context, url string, config *Config) ([]map[string]any, error) {
+	getLogger().Info("scrape url untyped starting",
+		"url", url,
+		"has_pagination", config.Pagination != nil)
+
 	// Check if pagination is configured
 	if config.Pagination != nil {
 		// Use pagination logic
@@ -379,6 +391,10 @@ func ScrapeURLUntyped(ctx context.Context, url string, config *Config) ([]map[st
 		for _, page := range results.Pages {
 			allItems = append(allItems, page.Items...)
 		}
+		getLogger().Info("scrape url untyped with pagination completed",
+			"url", url,
+			"total_items", len(allItems),
+			"pages", len(results.Pages))
 		return allItems, nil
 	}
 
